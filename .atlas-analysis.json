@@ -1,0 +1,174 @@
+{
+  "projectType": "saas",
+  "projectName": "Dify",
+  "projectDescription": "Dify is an open-source, production-ready LLM application development platform that combines agentic AI workflows, RAG pipelines, agent capabilities, model management, and observability into an intuitive interface.",
+  "theme": "maple",
+  "primaryColor": "#0440d4",
+  "lightColor": "#5da0f3",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "getting-started/cloud",
+              "getting-started/self-hosting"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/workflows",
+              "concepts/rag-pipeline",
+              "concepts/agents",
+              "concepts/models",
+              "concepts/tools",
+              "concepts/plugins"
+            ]
+          },
+          {
+            "group": "Building Apps",
+            "pages": [
+              "apps/chatbot",
+              "apps/agent",
+              "apps/workflow",
+              "apps/text-generator",
+              "apps/prompt-ide"
+            ]
+          },
+          {
+            "group": "Knowledge & RAG",
+            "pages": [
+              "knowledge/create-knowledge-base",
+              "knowledge/document-ingestion",
+              "knowledge/retrieval-settings",
+              "knowledge/embedding-models"
+            ]
+          },
+          {
+            "group": "Models & Providers",
+            "pages": [
+              "models/supported-providers",
+              "models/add-model",
+              "models/model-settings"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/docker-compose",
+              "deployment/kubernetes",
+              "deployment/environment-variables",
+              "deployment/upgrade"
+            ]
+          },
+          {
+            "group": "Observability & LLMOps",
+            "pages": [
+              "llmops/logs-and-annotations",
+              "llmops/monitoring",
+              "llmops/tracing-integrations"
+            ]
+          },
+          {
+            "group": "Plugins & Extensions",
+            "pages": [
+              "plugins/overview",
+              "plugins/install-plugin",
+              "plugins/develop-plugin",
+              "plugins/mcp-tools"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/overview",
+              "api-reference/authentication"
+            ]
+          },
+          {
+            "group": "Chat",
+            "pages": [
+              "api-reference/chat/send-message",
+              "api-reference/chat/stop-message",
+              "api-reference/chat/get-conversations",
+              "api-reference/chat/delete-conversation",
+              "api-reference/chat/get-messages"
+            ]
+          },
+          {
+            "group": "Completion",
+            "pages": [
+              "api-reference/completion/create-completion",
+              "api-reference/completion/stop-completion"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "api-reference/workflow/run-workflow",
+              "api-reference/workflow/stop-workflow",
+              "api-reference/workflow/get-run"
+            ]
+          },
+          {
+            "group": "Knowledge Base",
+            "pages": [
+              "api-reference/knowledge/create-dataset",
+              "api-reference/knowledge/list-datasets",
+              "api-reference/knowledge/create-document",
+              "api-reference/knowledge/update-document",
+              "api-reference/knowledge/delete-document",
+              "api-reference/knowledge/list-documents"
+            ]
+          },
+          {
+            "group": "Files & Audio",
+            "pages": [
+              "api-reference/files/upload-file",
+              "api-reference/audio/text-to-speech",
+              "api-reference/audio/speech-to-text"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Visual AI workflow builder with drag-and-drop canvas",
+    "RAG pipeline with document ingestion (PDF, PPT, etc.) and retrieval",
+    "Agent capabilities with 50+ built-in tools (Google Search, DALL·E, WolframAlpha)",
+    "Support for 100+ LLM providers (OpenAI, Anthropic, Mistral, Llama, etc.)",
+    "Prompt IDE for crafting and comparing model outputs",
+    "LLMOps observability: logs, annotations, performance monitoring",
+    "Backend-as-a-Service REST APIs for all app capabilities",
+    "Plugin system and MCP (Model Context Protocol) tool support",
+    "Multi-tenant workspace with enterprise SSO and access control",
+    "Self-hostable via Docker Compose or Kubernetes"
+  ],
+  "publicApiSurface": [
+    "POST /v1/chat-messages — Send chat messages (blocking/streaming)",
+    "POST /v1/completion-messages — Create text completions",
+    "POST /v1/workflows/run — Execute a workflow",
+    "GET /v1/conversations — List conversations",
+    "POST /v1/files/upload — Upload files for use in messages",
+    "POST /v1/audio/speech-to-text — Transcribe audio",
+    "POST /v1/audio/text-to-speech — Convert text to audio",
+    "GET /v1/messages — Get message history",
+    "POST /v1/datasets — Create knowledge base",
+    "POST /v1/datasets/{dataset_id}/document/create-by-text — Add document",
+    "GET /v1/datasets/{dataset_id}/documents — List documents",
+    "DELETE /v1/datasets/{dataset_id}/documents/{document_id} — Delete document"
+  ]
+}
