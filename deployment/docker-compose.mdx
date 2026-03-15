@@ -1,0 +1,198 @@
+---
+title: "Docker Compose Deployment"
+description: "Step-by-step guide to deploying Dify with Docker Compose, including service overview, environment configuration, health checks, and Nginx setup."
+keywords: ["Docker Compose", "deployment", "self-hosted", "docker", "containers"]
+---
+
+Docker Compose is the recommended way to deploy Dify for most self-hosted setups. A single `docker compose up -d` command starts all required services.
+
+## Prerequisites
+
+- **Docker Engine** 20.10.0 or later
+- **Docker Compose** v2.0.0 or later (`docker compose` command, not the legacy `docker-compose`)
+- **CPU**: 2 cores minimum, 4+ cores recommended
+- **RAM**: 4 GB minimum, 8 GB recommended for production
+- **Disk**: 20 GB free for images, volumes, and uploaded files
+
+<Note>
+The instructions below assume you have cloned the Dify repository. All commands are run from the `docker/` directory.
+</Note>
+
+## Deploy
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/langgenius/dify.git
+    cd dify/docker
+    ```
+  </Step>
+  <Step title="Copy the environment file">
+    ```bash
+    cp .env.example .env
+    ```
+
+    Open `.env` in your editor and at minimum set a strong `SECRET_KEY`:
+
+    ```bash
+    # Generate a secure key
+    openssl rand -base64 42
+    ```
+
+    Paste the output as the value of `SECRET_KEY` in `.env`.
+  </Step>
+  <Step title="Start all services">
+    ```bash
+    docker compose up -d
+    ```
+
+    On first run, Docker pulls all images (this may take several minutes). Subsequent starts are fast.
+  </Step>
+  <Step title="Open Dify">
+    Navigate to `http://localhost` in your browser. On first visit you are prompted to create an admin account.
+  </Step>
+</Steps>
+
+<Warning>
+Change the default `SECRET_KEY`, `DB_PASSWORD`, and `REDIS_PASSWORD` values before exposing the deployment to any network. The defaults in `.env.example` are not secure for production use.
+</Warning>
+
+## Service overview
+
+The Docker Compose stack runs these services:
+
+| Service | Image | Purpose |
+|---|---|---|
+| `api` | `langgenius/dify-api:1.13.0` | Flask API server (mode: `api`) |
+| `worker` | `langgenius/dify-api:1.13.0` | Celery background worker (mode: `worker`) |
+| `worker_beat` | `langgenius/dify-api:1.13.0` | Celery beat scheduler for periodic tasks (mode: `beat`) |
+| `web` | `langgenius/dify-web:1.13.0` | Next.js frontend |
+| `db_postgres` | `postgres:15-alpine` | Primary relational database |
+| `redis` | `redis:6-alpine` | Cache and Celery message broker |
+| `nginx` | `nginx:latest` | Reverse proxy, routes traffic to `api` and `web` |
+| `weaviate` | `semitechnologies/weaviate:1.27.0` | Default vector store for Knowledge Base |
+| `sandbox` | `langgenius/dify-sandbox:0.2.12` | Isolated code execution environment |
+| `plugin_daemon` | `langgenius/dify-plugin-daemon:0.5.3-local` | Plugin host process |
+| `ssrf_proxy` | `ubuntu/squid:latest` | Egress proxy to mitigate SSRF attacks |
+
+<Note>
+The `db_postgres` and `weaviate` services are activated by Docker Compose profiles. The default profile is `postgresql,weaviate`, set via `COMPOSE_PROFILES` in `.env`.
+</Note>
+
+## Select a vector store
+
+Change the `VECTOR_STORE` variable in `.env` before the first start. The `COMPOSE_PROFILES` variable is computed automatically:
+
+```bash
+# .env
+VECTOR_STORE=weaviate       # default
+# VECTOR_STORE=qdrant
+# VECTOR_STORE=milvus
+# VECTOR_STORE=pgvector
+# VECTOR_STORE=opensearch
+# VECTOR_STORE=chroma
+```
+
+Supported values: `weaviate`, `qdrant`, `milvus`, `myscale`, `pgvector`, `pgvecto-rs`, `opensearch`, `oracle`, `chroma`, `elasticsearch`, `tidb`, `couchbase`, `vikingdb`, `lindorm`, `opengauss`, `baidu`, `tencent`, and more. See the full list in `.env.example`.
+
+## Check service health
+
+```bash
+# View running containers and their status
+docker compose ps
+
+# Follow logs for all services
+docker compose logs -f
+
+# Follow logs for a specific service
+docker compose logs -f api
+
+# Check the API health endpoint
+curl http://localhost/health
+```
+
+All services define Docker health checks. The `api` and `worker` services wait for both `db_postgres` and `redis` to be healthy before starting.
+
+## Common operations
+
+```bash
+# Stop all services (containers remain)
+docker compose stop
+
+# Stop and remove containers (volumes are preserved)
+docker compose down
+
+# Restart a single service after a config change
+docker compose restart api
+
+# Scale the worker (run multiple workers)
+docker compose up -d --scale worker=2
+```
+
+## Configuring Nginx
+
+Nginx is the only service that exposes ports to the host by default: port `80` (HTTP) and port `443` (HTTPS, when enabled).
+
+### Change the exposed port
+
+```bash
+# .env
+EXPOSE_NGINX_PORT=8080
+EXPOSE_NGINX_SSL_PORT=8443
+```
+
+### Enable HTTPS
+
+<Steps>
+  <Step title="Add your SSL certificate">
+    Place your certificate and key in `./nginx/ssl/`:
+
+    ```
+    ./nginx/ssl/dify.crt
+    ./nginx/ssl/dify.key
+    ```
+  </Step>
+  <Step title="Update .env">
+    ```bash
+    NGINX_HTTPS_ENABLED=true
+    NGINX_SSL_CERT_FILENAME=dify.crt
+    NGINX_SSL_CERT_KEY_FILENAME=dify.key
+    NGINX_SSL_PROTOCOLS=TLSv1.2 TLSv1.3
+    ```
+  </Step>
+  <Step title="Restart Nginx">
+    ```bash
+    docker compose restart nginx
+    ```
+  </Step>
+</Steps>
+
+### Key Nginx variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `NGINX_SERVER_NAME` | `_` | Server name (use your domain in production) |
+| `NGINX_PORT` | `80` | Internal HTTP port |
+| `NGINX_SSL_PORT` | `443` | Internal HTTPS port |
+| `NGINX_WORKER_PROCESSES` | `auto` | Number of worker processes |
+| `NGINX_CLIENT_MAX_BODY_SIZE` | `100M` | Maximum upload size |
+| `NGINX_KEEPALIVE_TIMEOUT` | `65` | Keep-alive timeout in seconds |
+| `NGINX_PROXY_READ_TIMEOUT` | `3600s` | Read timeout (long for SSE streams) |
+| `NGINX_PROXY_SEND_TIMEOUT` | `3600s` | Send timeout |
+
+## Persistent data volumes
+
+All stateful data is stored in `./volumes/` relative to the `docker/` directory:
+
+```
+docker/volumes/
+├── app/storage/      # Uploaded files and plugin storage
+├── db/data/          # PostgreSQL data files
+├── redis/data/       # Redis RDB snapshots
+├── weaviate/         # Weaviate vector index
+└── plugin_daemon/    # Installed plugins
+```
+
+<Warning>
+Back up the `./volumes/` directory — especially `db/data/` — before upgrading or making major configuration changes.
+</Warning>

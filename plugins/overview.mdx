@@ -1,0 +1,141 @@
+---
+title: "Plugins overview"
+description: "Extend Dify with tool providers, model providers, endpoints, agent strategies, and more through the plugin system."
+---
+
+The Dify plugin system lets you package new capabilities as self-contained units that can be installed into any Dify workspace. A plugin declares what it provides — tools, model providers, HTTP endpoints, agent strategies, or data sources — and Dify's plugin daemon runs each plugin in an isolated process.
+
+## What plugins enable
+
+Without plugins, adding a new tool or model provider requires modifying the Dify source code and rebuilding the container. With plugins, you can:
+
+- Add new tool providers (APIs, services, data sources) without touching Dify's core codebase
+- Add support for new model providers and model types
+- Expose your Dify app as an HTTP endpoint (webhook receiver, custom API, etc.)
+- Define custom agent strategies that control how an agent reasons and acts
+- Add new workflow node types
+
+## Plugin types
+
+<CardGroup cols={2}>
+  <Card title="Tool plugins" icon="wrench">
+    Expose one or more callable tools to LLMs and agents. A tool plugin defines the tool's name, description, and input schema. The plugin's runtime code executes when the tool is invoked.
+  </Card>
+  <Card title="Model provider plugins" icon="microchip">
+    Add a new LLM, embedding model, reranker, TTS, or speech-to-text provider. The plugin handles authentication and the API call; Dify handles routing.
+  </Card>
+  <Card title="Extension plugins" icon="plug">
+    Register HTTP endpoints on the Dify server. Useful for building webhook handlers or custom API surfaces that can call back into Dify.
+  </Card>
+  <Card title="Agent strategy plugins" icon="robot">
+    Define a custom agent loop. Override the default ReAct or Function Calling behavior with your own reasoning strategy.
+  </Card>
+  <Card title="Datasource plugins" icon="database">
+    Integrate a new external data source for use in knowledge retrieval.
+  </Card>
+  <Card title="Trigger plugins" icon="bolt">
+    Define conditions that can trigger workflow executions, such as scheduled events or inbound webhooks.
+  </Card>
+</CardGroup>
+
+## Plugin categories at a glance
+
+The `PluginCategory` determines which part of Dify the plugin integrates with:
+
+| Category | Integration point |
+|---|---|
+| `tool` | Tool panel in agents and workflows |
+| `model` | Model provider settings |
+| `extension` | Endpoint registry |
+| `agent-strategy` | Agent strategy selector |
+| `datasource` | Knowledge base retrieval |
+| `trigger` | Workflow trigger configuration |
+
+Dify infers the category automatically from the plugin declaration: if a plugin declares a `tool` provider, it is categorized as a tool plugin. You do not set the category explicitly.
+
+## Plugin manifest
+
+Every plugin ships with a manifest (`manifest.yaml` or equivalent) that declares:
+
+```yaml
+version: "0.1.0"
+author: your-username
+name: my-tool-plugin
+description:
+  en_US: "A short description of what this plugin does."
+label:
+  en_US: "My Tool Plugin"
+icon: icon.svg
+created_at: "2025-01-01T00:00:00Z"
+resource:
+  memory: 52428800  # bytes
+  permission:
+    tool:
+      enabled: true
+meta:
+  minimum_dify_version: "1.0.0"
+```
+
+Key manifest fields:
+
+| Field | Required | Description |
+|---|---|---|
+| `version` | Yes | Semantic version of the plugin (e.g., `1.2.0`) |
+| `author` | Yes | Author identifier — alphanumeric, hyphens, underscores, max 64 chars |
+| `name` | Yes | Plugin identifier — lowercase alphanumeric and hyphens, max 128 chars |
+| `description` | Yes | Localized description object |
+| `resource.memory` | Yes | Memory limit for the plugin process in bytes |
+| `resource.permission` | No | Declares which Dify capabilities the plugin may invoke (tools, models, nodes, storage) |
+| `meta.minimum_dify_version` | No | Minimum Dify version required to run this plugin |
+
+## Plugin marketplace and discovery
+
+Dify Cloud includes a plugin marketplace where you can browse verified and community plugins by category. From the marketplace you can:
+
+- Browse plugins by category (tools, models, extensions)
+- View the plugin's manifest, version history, and author
+- Install with a single click — no file upload required
+- Check for available updates to installed plugins
+
+For self-hosted deployments, workspace admins control whether members can install plugins from the marketplace, from GitHub, or only from uploaded package files. Permissions are configured under **Settings → Plugin Permissions**.
+
+## Plugin permissions
+
+Each plugin declares the Dify capabilities it needs in its manifest. Dify enforces these permissions at runtime:
+
+| Permission | What it grants |
+|---|---|
+| `tool.enabled` | The plugin can invoke other installed tools |
+| `model.llm` | The plugin can call LLM providers |
+| `model.text_embedding` | The plugin can call embedding models |
+| `model.rerank` | The plugin can call reranker models |
+| `model.tts` | The plugin can call TTS models |
+| `model.speech2text` | The plugin can call speech-to-text models |
+| `model.moderation` | The plugin can call moderation models |
+| `node.enabled` | The plugin can invoke workflow nodes |
+| `endpoint.enabled` | The plugin can register HTTP endpoints |
+| `storage.enabled` | The plugin can use persistent key-value storage |
+
+<Warning>
+  Review the permission declarations in a plugin's manifest before installing. A plugin that requests `model.llm` permission can make model calls that consume tokens from your workspace's model providers.
+</Warning>
+
+## Relationship to MCP tools
+
+MCP (Model Context Protocol) tools are a distinct mechanism from plugins. Where plugins are packaged code that runs inside Dify's plugin daemon, MCP tools are remote servers that Dify connects to over HTTP. Dify fetches the list of available tools from the MCP server at connection time and exposes them like any other tool provider.
+
+See [MCP Tools](/plugins/mcp-tools) for details on connecting MCP servers.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Installing plugins" icon="download" href="/plugins/install-plugin">
+    Install plugins from the marketplace or from a package file.
+  </Card>
+  <Card title="Developing plugins" icon="code" href="/plugins/develop-plugin">
+    Build and publish your own plugin.
+  </Card>
+  <Card title="MCP tools" icon="plug" href="/plugins/mcp-tools">
+    Connect external MCP servers as tool providers.
+  </Card>
+</CardGroup>

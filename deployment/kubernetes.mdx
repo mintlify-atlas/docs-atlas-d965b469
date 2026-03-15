@@ -1,0 +1,213 @@
+---
+title: "Kubernetes Deployment"
+description: "Options for deploying Dify on Kubernetes, including community Helm charts, ConfigMap and Secret management, persistent volumes, and high-availability considerations."
+keywords: ["Kubernetes", "Helm", "k8s", "deployment", "high availability", "production"]
+---
+
+Dify does not ship an official Helm chart, but the community maintains several actively used charts. This page summarises the available options and covers the configuration patterns common to all of them.
+
+## Community Helm charts
+
+<CardGroup cols={2}>
+  <Card title="LeoQuote/dify-kubernetes" icon="helm" href="https://github.com/LeoQuote/dify-kubernetes">
+    The most widely referenced community chart. Supports all core Dify services with configurable replicas and ingress.
+  </Card>
+  <Card title="BorisPolonsky/dify-helm" icon="helm" href="https://github.com/BorisPolonsky/dify-helm">
+    Feature-rich chart with support for external PostgreSQL, Redis, and vector store backends.
+  </Card>
+  <Card title="magicsong/dify-helm" icon="helm" href="https://github.com/magicsong/dify-helm">
+    Actively maintained fork with additional enterprise-focused configuration options.
+  </Card>
+  <Card title="douban/dify-helm-chart" icon="helm" href="https://github.com/douban/dify-helm-chart">
+    Helm chart from Douban, focused on production stability.
+  </Card>
+</CardGroup>
+
+<Note>
+These charts are maintained by the community, not by the Dify team. Pin chart and image versions in production, and review the chart's `values.yaml` before deploying.
+</Note>
+
+## Basic Helm install example
+
+The steps below use the LeoQuote chart as an example. Adjust the repository URL and chart name for whichever chart you choose.
+
+<Steps>
+  <Step title="Add the Helm repository">
+    ```bash
+    helm repo add dify https://leoguote.github.io/dify-kubernetes
+    helm repo update
+    ```
+  </Step>
+  <Step title="Inspect default values">
+    ```bash
+    helm show values dify/dify > my-values.yaml
+    ```
+
+    Open `my-values.yaml` and configure at minimum:
+    - Image tags (pin to the version you want)
+    - `secretKey` — must match across all replicas
+    - Database and Redis connection strings
+    - Ingress hostname and TLS settings
+    - Persistent volume storage class
+  </Step>
+  <Step title="Create a namespace">
+    ```bash
+    kubectl create namespace dify
+    ```
+  </Step>
+  <Step title="Install">
+    ```bash
+    helm install dify dify/dify \
+      --namespace dify \
+      --values my-values.yaml
+    ```
+  </Step>
+  <Step title="Check rollout status">
+    ```bash
+    kubectl -n dify rollout status deployment/dify-api
+    kubectl -n dify get pods
+    ```
+  </Step>
+</Steps>
+
+## ConfigMap and Secret management
+
+Dify reads all configuration from environment variables. On Kubernetes, sensitive values belong in `Secret` objects and non-sensitive values in `ConfigMap` objects.
+
+### Example Secret
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dify-secrets
+  namespace: dify
+type: Opaque
+stringData:
+  SECRET_KEY: "<your-generated-secret-key>"
+  DB_PASSWORD: "<your-postgres-password>"
+  REDIS_PASSWORD: "<your-redis-password>"
+  WEAVIATE_API_KEY: "<your-weaviate-key>"
+```
+
+### Example ConfigMap
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dify-config
+  namespace: dify
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_DATABASE: "dify"
+  DB_USERNAME: "postgres"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  VECTOR_STORE: "weaviate"
+  WEAVIATE_ENDPOINT: "http://weaviate-service:8080"
+  CELERY_BROKER_URL: "redis://:$(REDIS_PASSWORD)@redis-service:6379/1"
+  LOG_LEVEL: "INFO"
+  MIGRATION_ENABLED: "true"
+```
+
+<Warning>
+Never store secrets in a ConfigMap. Use `Secret` objects and reference them with `secretKeyRef` in your Deployment manifests.
+</Warning>
+
+### Referencing in a Deployment
+
+```yaml
+env:
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: dify-secrets
+        key: SECRET_KEY
+  - name: DB_HOST
+    valueFrom:
+      configMapKeyRef:
+        name: dify-config
+        key: DB_HOST
+```
+
+## Persistent volume requirements
+
+The following services require persistent storage. Use your cluster's preferred `StorageClass`.
+
+| Service | Recommended size | Mount path | Notes |
+|---|---|---|---|
+| API / Worker | 20 GB+ | `/app/api/storage` | Uploaded files, plugin packages |
+| PostgreSQL | 20 GB+ | `/var/lib/postgresql/data` | Primary database |
+| Redis | 2 GB+ | `/data` | Cache; can be ephemeral in low-traffic setups |
+| Weaviate | 10 GB+ | `/var/lib/weaviate` | Vector index; size depends on dataset |
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dify-storage
+  namespace: dify
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 20Gi
+```
+
+<Note>
+If you run multiple API or Worker replicas, the storage PVC must use `ReadWriteMany` (e.g., NFS, AWS EFS, Azure Files). `ReadWriteOnce` works only for single-replica deployments.
+</Note>
+
+## High availability considerations
+
+For a production, fault-tolerant deployment:
+
+<AccordionGroup>
+  <Accordion title="API and Worker replicas">
+    The `api` and `worker` services are stateless (state lives in PostgreSQL and Redis) and can be scaled horizontally:
+
+    ```bash
+    kubectl -n dify scale deployment/dify-api --replicas=3
+    kubectl -n dify scale deployment/dify-worker --replicas=2
+    ```
+
+    Add a `PodDisruptionBudget` to ensure at least one replica stays up during node maintenance.
+  </Accordion>
+  <Accordion title="PostgreSQL">
+    For production, replace the bundled single-node PostgreSQL with a managed service (Amazon RDS, Google Cloud SQL, Azure Database) or an operator-managed cluster (CloudNativePG, Crunchy Postgres). Configure `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_DATABASE` to point at your external database.
+  </Accordion>
+  <Accordion title="Redis">
+    Use a managed Redis service or a Redis Sentinel / Redis Cluster setup for HA. Dify supports both:
+
+    ```bash
+    # Sentinel
+    REDIS_USE_SENTINEL=true
+    REDIS_SENTINELS=sentinel1:26379,sentinel2:26379,sentinel3:26379
+    REDIS_SENTINEL_SERVICE_NAME=mymaster
+
+    # Cluster
+    REDIS_USE_CLUSTERS=true
+    REDIS_CLUSTERS=node1:6379,node2:6379,node3:6379
+    ```
+  </Accordion>
+  <Accordion title="Ingress and TLS">
+    Use an ingress controller (nginx-ingress, Traefik, AWS ALB) to terminate TLS and route traffic to the `web` and `api` services. Set `CONSOLE_API_URL`, `APP_API_URL`, and `FILES_URL` in your ConfigMap to the externally accessible URLs so the frontend can reach the correct endpoints.
+  </Accordion>
+  <Accordion title="Resource requests and limits">
+    Set CPU/memory requests and limits on all deployments to prevent noisy-neighbour issues:
+
+    ```yaml
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+    ```
+  </Accordion>
+</AccordionGroup>

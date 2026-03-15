@@ -1,0 +1,292 @@
+---
+title: "Self-hosting"
+description: "Deploy Dify on your own infrastructure"
+---
+
+Dify can be deployed on any infrastructure you control. This page covers the available deployment methods, system requirements, and configuration essentials.
+
+## Deployment options
+
+<CardGroup cols={2}>
+  <Card title="Docker Compose" icon="docker">
+    The simplest path to a running Dify instance. Suitable for single-server deployments and local development.
+  </Card>
+  <Card title="Kubernetes" icon="dharmachakra">
+    Community-contributed Helm charts and YAML manifests for production-grade, highly available deployments.
+  </Card>
+  <Card title="AWS" icon="aws">
+    AMI on AWS Marketplace, CDK templates for ECS and EKS, and Terraform modules.
+  </Card>
+  <Card title="GCP / Azure" icon="cloud">
+    Terraform for Google Cloud, Azure Terraform, and Azure DevOps pipeline Helm chart for AKS.
+  </Card>
+</CardGroup>
+
+## System requirements
+
+| Resource | Minimum |
+|---|---|
+| CPU | 2 cores |
+| RAM | 4 GiB |
+| Disk | 20 GiB (more recommended for knowledge base storage) |
+| OS | Any OS that runs Docker Engine |
+
+Docker and Docker Compose must be installed. See [Get Docker](https://docs.docker.com/get-docker/) and [Install Docker Compose](https://docs.docker.com/compose/install/).
+
+## Docker Compose
+
+Docker Compose is the recommended starting point for most self-hosted deployments.
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/langgenius/dify.git
+    cd dify/docker
+    ```
+  </Step>
+
+  <Step title="Create your environment file">
+    ```bash
+    cp .env.example .env
+    ```
+
+    Open `.env` and update these values before first launch:
+
+    ```bash
+    # Generate with: openssl rand -base64 42
+    SECRET_KEY=your-secret-key
+
+    # Database credentials
+    DB_PASSWORD=your-db-password
+
+    # Redis password
+    REDIS_PASSWORD=your-redis-password
+    ```
+  </Step>
+
+  <Step title="Start Dify">
+    ```bash
+    docker compose up -d
+    ```
+  </Step>
+
+  <Step title="Complete initial setup">
+    Open `http://localhost/install` in your browser and create the admin account.
+  </Step>
+</Steps>
+
+For a full walkthrough, see the [Quickstart](/quickstart).
+
+## Kubernetes
+
+Several community-maintained Helm charts and Kubernetes manifests are available:
+
+<Tabs>
+  <Tab title="Helm charts">
+    | Chart | Maintainer |
+    |---|---|
+    | [douban/charts](https://github.com/douban/charts/tree/master/charts/dify) | @LeoQuote |
+    | [dify-helm](https://github.com/BorisPolonsky/dify-helm) | @BorisPolonsky |
+    | [ai-charts](https://github.com/magicsong/ai-charts) | @magicsong |
+    | [Dify-helm-chart-AKS](https://github.com/Ruiruiz30/Dify-helm-chart-AKS) | @LeoZhang (Azure DevOps) |
+
+    Example install with a Helm chart:
+
+    ```bash
+    helm repo add dify https://douban.github.io/charts/
+    helm install dify dify/dify \
+      --set global.host=your-domain.com \
+      --set global.secretKey=your-secret-key
+    ```
+
+    Refer to each chart's `values.yaml` for the full configuration reference.
+  </Tab>
+  <Tab title="YAML manifests">
+    | Manifest | Maintainer | Notes |
+    |---|---|---|
+    | [dify-kubernetes](https://github.com/Winson-030/dify-kubernetes) | @Winson-030 | |
+    | [dify-k8s](https://github.com/wyy-holding/dify-k8s) | @wyy-holding | |
+    | [DifyAI-Kubernetes](https://github.com/Zhoneym/DifyAI-Kubernetes) | @Zhoneym | Supports Dify v1.6.0+ |
+
+    Apply a manifest:
+
+    ```bash
+    kubectl apply -f https://raw.githubusercontent.com/Winson-030/dify-kubernetes/main/dify-deployment.yaml
+    ```
+  </Tab>
+</Tabs>
+
+## Cloud providers
+
+<Tabs>
+  <Tab title="AWS">
+    **AWS Marketplace AMI**
+
+    The quickest path for AWS users. Dify Premium is available on the [AWS Marketplace](https://aws.amazon.com/marketplace/pp/prodview-t22mebxzwjhu6) as a one-click AMI deployment into your own VPC. Includes options for custom logo and branding.
+
+    **AWS CDK**
+
+    Two CDK-based options for deploying into your own account:
+
+    - [EKS-based deployment](https://github.com/aws-samples/solution-for-deploying-dify-on-aws) by @KevinZhao
+    - [ECS-based deployment](https://github.com/aws-samples/dify-self-hosted-on-aws) by @tmokmss
+
+    ```bash
+    git clone https://github.com/aws-samples/dify-self-hosted-on-aws
+    cd dify-self-hosted-on-aws
+    npm install
+    cdk deploy
+    ```
+  </Tab>
+  <Tab title="Google Cloud">
+    Deploy with Terraform:
+
+    ```bash
+    git clone https://github.com/DeNA/dify-google-cloud-terraform
+    cd dify-google-cloud-terraform
+    terraform init
+    terraform apply
+    ```
+
+    See the repository for required variables (project ID, region, etc.).
+  </Tab>
+  <Tab title="Azure">
+    **Terraform**
+
+    ```bash
+    git clone https://github.com/nikawang/dify-azure-terraform
+    cd dify-azure-terraform
+    terraform init
+    terraform apply
+    ```
+
+    **Azure DevOps Pipeline (AKS)**
+
+    The [Dify-helm-chart-AKS](https://github.com/Ruiruiz30/Dify-helm-chart-AKS) repository provides a pipeline definition for one-click deployment to AKS via Azure DevOps.
+  </Tab>
+  <Tab title="Alibaba Cloud">
+    Two options are available:
+
+    - [Alibaba Cloud Computing Nest](https://computenest.console.aliyun.com/service/instance/create/default?type=user&ServiceName=Dify%E7%A4%BE%E5%8C%BA%E7%89%88) — one-click service deployment
+    - [Alibaba Cloud Data Management](https://www.alibabacloud.com/help/en/dms/dify-in-invitational-preview/) — one-click deploy via DMS
+  </Tab>
+</Tabs>
+
+## Environment configuration
+
+All configuration is managed through environment variables in the `.env` file (Docker Compose) or equivalent mechanism in Kubernetes.
+
+The `.env.example` file in the repository documents every available variable. Key configuration areas:
+
+<AccordionGroup>
+  <Accordion title="Database">
+    PostgreSQL is the default database. MySQL and OceanBase are also supported. Set `DB_TYPE` to switch:
+
+    ```bash
+    # Options: postgresql (default), mysql, oceanbase, seekdb
+    DB_TYPE=postgresql
+    DB_USERNAME=postgres
+    DB_PASSWORD=difyai123456
+    DB_HOST=db_postgres
+    DB_PORT=5432
+    DB_DATABASE=dify
+    ```
+  </Accordion>
+
+  <Accordion title="Vector store">
+    Weaviate is bundled by default. Switch vector stores by changing `VECTOR_STORE` and providing the matching connection variables:
+
+    ```bash
+    # Options: weaviate (default), qdrant, milvus, pgvector, pgvecto-rs,
+    #          opensearch, elasticsearch, chroma, tidb, and many more
+    VECTOR_STORE=weaviate
+    WEAVIATE_ENDPOINT=http://weaviate:8080
+    WEAVIATE_API_KEY=WVF5YThaHlkYwhGUSmCRgsX3tD5ngdN8pkih
+    ```
+  </Accordion>
+
+  <Accordion title="Object storage">
+    Files are stored locally by default using OpenDAL. To use S3 or another compatible store:
+
+    ```bash
+    STORAGE_TYPE=opendal
+    OPENDAL_SCHEME=s3
+    S3_BUCKET_NAME=difyai
+    S3_REGION=us-east-1
+    S3_ACCESS_KEY=your-access-key
+    S3_SECRET_KEY=your-secret-key
+    ```
+
+    Other supported backends: Azure Blob, Google Cloud Storage, Alibaba Cloud OSS, Tencent COS, Huawei OBS, and more.
+  </Accordion>
+
+  <Accordion title="HTTPS">
+    Enable HTTPS using the bundled Certbot container:
+
+    ```bash
+    NGINX_HTTPS_ENABLED=true
+    NGINX_ENABLE_CERTBOT_CHALLENGE=true
+    CERTBOT_EMAIL=your_email@example.com
+    CERTBOT_DOMAIN=your_domain.com
+    ```
+
+    See `docker/certbot/README.md` for setup details.
+  </Accordion>
+
+  <Accordion title="Observability">
+    Enable OpenTelemetry export:
+
+    ```bash
+    ENABLE_OTEL=true
+    OTLP_BASE_ENDPOINT=http://your-collector:4318
+    ```
+
+    Dify also integrates with [Opik](https://www.comet.com/docs/opik/integrations/dify), [Langfuse](https://docs.langfuse.com), and [Arize Phoenix](https://docs.arize.com/phoenix) for LLM observability.
+  </Accordion>
+</AccordionGroup>
+
+## Upgrading
+
+<Steps>
+  <Step title="Pull the latest code">
+    ```bash
+    git pull origin main
+    ```
+  </Step>
+
+  <Step title="Sync new environment variables (optional)">
+    New Dify versions may introduce new variables to `.env.example`. Use the included sync tool to add them to your existing `.env` without overwriting your custom values:
+
+    ```bash
+    cd docker
+    chmod +x dify-env-sync.sh
+    ./dify-env-sync.sh
+    ```
+
+    The script creates a timestamped backup of your current `.env` to `env-backup/` before making any changes.
+  </Step>
+
+  <Step title="Pull new images and restart">
+    ```bash
+    docker compose pull
+    docker compose up -d
+    ```
+
+    Database migrations run automatically on startup (`MIGRATION_ENABLED=true` by default).
+  </Step>
+</Steps>
+
+<Warning>
+  Always back up your database and `.env` file before upgrading, especially for major version changes.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Step-by-step Docker Compose setup with all commands.
+  </Card>
+  <Card title="Dify Cloud" icon="cloud" href="/getting-started/cloud">
+    Prefer not to manage infrastructure? Use the hosted Dify Cloud service.
+  </Card>
+</CardGroup>

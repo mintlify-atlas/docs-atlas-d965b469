@@ -1,0 +1,126 @@
+---
+title: "Monitoring & Metrics"
+description: "Track request volume, token usage, active users, latency, and cost across your Dify apps."
+---
+
+The Dify console provides built-in metrics for every app. All statistics are computed from the `messages` table and are scoped to a single app. No external service is required.
+
+## App overview dashboard
+
+Navigate to your app and open the **Monitoring → Overview** tab. The overview shows headline numbers for the selected time range:
+
+| Metric | Description |
+|---|---|
+| **Total messages** | Count of all messages processed, excluding test runs from the Prompt IDE |
+| **Total conversations** | Count of distinct conversations (chat apps only) |
+| **Active users** | Count of distinct end-user IDs that sent at least one message |
+| **Average session interactions** | Average number of messages per conversation (chat apps only) |
+| **User satisfaction rate** | Ratio of 👍 feedback to total messages, expressed per thousand |
+| **Average response time** | Mean `provider_response_latency` in milliseconds (completion apps only) |
+| **Token output speed** | `answer_tokens / provider_response_latency` averaged across messages |
+
+<Note>
+  Debug and test messages sent from the Prompt IDE are filtered out of all statistics. Metrics reflect only production traffic.
+</Note>
+
+## Time-series charts
+
+Below the headline numbers, each metric is plotted over time. Use the **date range picker** in the top-right corner to change the window. You can select a custom range with `YYYY-MM-DD HH:MM` granularity.
+
+Available charts:
+
+- **Daily messages** — Message count per calendar day
+- **Daily conversations** — New conversations started per day
+- **Daily active users** — Unique end-users per day
+- **Token costs** — Total tokens consumed (prompt + completion) and estimated USD cost per day
+- **Average response time** — Mean latency in milliseconds per day
+- **Tokens per second** — Generation throughput per day
+
+## Token usage and cost tracking
+
+The token cost chart shows:
+
+- **Token count** — Sum of `message_tokens` (prompt) and `answer_tokens` (completion) for each day
+- **Total price** — Sum of `total_price` stored on each message record, denominated in USD
+
+Dify records the price at inference time based on the model's published per-token pricing. If you switch models or if provider pricing changes, historical cost data reflects what was logged at the time of each request.
+
+<Tip>
+  Filter by date range to compare token spend before and after switching models or changing your system prompt length.
+</Tip>
+
+## Workflow statistics
+
+For **Workflow** app types, an additional **Workflow** statistics tab is available alongside the standard message metrics. Workflow stats are aggregated from workflow run records rather than message records and include:
+
+- **Total runs** — Count of workflow executions
+- **Success rate** — Percentage of runs that completed without error
+- **Average elapsed time** — Mean end-to-end duration across all runs
+- **Total tokens** — Token consumption aggregated across all nodes in each run
+
+## Error rate monitoring
+
+Errors are visible in two places:
+
+1. **Logs tab** — Filter by `Status = error` to see individual failed requests. The log detail shows the error message returned by the provider.
+2. **Daily messages chart** — A spike in message count without a corresponding increase in active users or conversations can indicate retries from upstream systems hitting persistent errors.
+
+Common error causes to investigate:
+
+- **Rate limit errors** — The model provider is throttling your requests. Consider switching to a higher-tier plan or distributing load across multiple API keys.
+- **Context length exceeded** — Your prompt plus conversation history exceeds the model's context window. Reduce history retention or switch to a model with a larger context window.
+- **Content policy violation** — The provider's content filter blocked the request. Review input moderation settings.
+
+## Grafana integration
+
+Dify does not ship a Grafana dashboard by default, but the community maintains a Grafana dashboard for self-hosted deployments. The dashboard queries Dify's PostgreSQL database and visualizes the same underlying data exposed in the console.
+
+To use it:
+
+1. Add your Dify PostgreSQL instance as a data source in Grafana
+2. Import the community dashboard from the [Dify GitHub discussions](https://github.com/langgenius/dify/discussions)
+3. Configure the data source name to match the dashboard's expected variable
+
+<Note>
+  Grafana connects directly to the database. Ensure your PostgreSQL instance is reachable from your Grafana host, or use a read replica to avoid adding load to the primary.
+</Note>
+
+## Alerting
+
+Dify does not include built-in alerting. For production deployments, consider these approaches:
+
+<AccordionGroup>
+  <Accordion title="Database-based alerts (Grafana, Metabase)">
+    Query the `messages` table on a schedule and alert when error count or cost exceeds a threshold. This works with any tool that can connect to PostgreSQL.
+
+    Example query to detect elevated error rates:
+
+    ```sql
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'error') AS error_count,
+      COUNT(*) AS total_count
+    FROM messages
+    WHERE app_id = '<your-app-id>'
+      AND created_at >= NOW() - INTERVAL '1 hour';
+    ```
+  </Accordion>
+
+  <Accordion title="Tracing provider alerts">
+    Connect a tracing integration such as Langfuse or LangSmith (see [Tracing Integrations](/llmops/tracing-integrations)). Both platforms support threshold-based alerts on latency, error rate, and cost natively.
+  </Accordion>
+
+  <Accordion title="Uptime monitoring">
+    Use an uptime monitoring service (e.g., UptimeRobot, Better Uptime) to probe the Dify API health endpoint at `GET /health`. This detects complete outages but not elevated error rates.
+  </Accordion>
+</AccordionGroup>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Logs & Annotations" icon="list" href="/llmops/logs-and-annotations">
+    Browse individual request logs and annotate outputs to improve future responses.
+  </Card>
+  <Card title="Tracing Integrations" icon="route" href="/llmops/tracing-integrations">
+    Export full LLM call traces to external observability platforms.
+  </Card>
+</CardGroup>

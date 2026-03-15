@@ -1,0 +1,125 @@
+---
+title: "Dify Cloud"
+description: "Get started with Dify Cloud — no setup required"
+---
+
+Dify Cloud is the fully managed version of Dify hosted by the Dify team. You get all the capabilities of the self-hosted platform without provisioning any infrastructure.
+
+## Plans
+
+<CardGroup cols={3}>
+  <Card title="Sandbox" icon="box">
+    **Free forever**
+
+    - 200 free GPT-4 calls included
+    - All core features
+    - Community support
+    - Best for exploration and prototyping
+  </Card>
+  <Card title="Professional" icon="user">
+    **For individuals and small teams**
+
+    - Higher usage limits
+    - Priority support
+    - Advanced analytics
+    - Custom branding on published apps
+  </Card>
+  <Card title="Team" icon="users">
+    **For organizations**
+
+    - Multiple workspace members
+    - SSO support
+    - Centralized billing
+    - Dedicated support
+  </Card>
+</CardGroup>
+
+For the full pricing breakdown, visit [dify.ai/pricing](https://dify.ai/pricing).
+
+## Sign up
+
+<Steps>
+  <Step title="Go to Dify Cloud">
+    Navigate to [cloud.dify.ai](https://cloud.dify.ai).
+  </Step>
+
+  <Step title="Create an account">
+    Sign up with your email address or use a GitHub or Google account for one-click sign-in.
+  </Step>
+
+  <Step title="Choose a plan">
+    Start with the free Sandbox plan. You can upgrade to Professional or Team at any time from your workspace settings.
+  </Step>
+
+  <Step title="Access your workspace">
+    After sign-up you are placed into your default workspace. The dashboard is immediately available — no installation or configuration required.
+  </Step>
+</Steps>
+
+## Create your first app
+
+<Steps>
+  <Step title="Add a model provider">
+    Go to **Settings → Model Provider** and enter your API key for OpenAI, Anthropic, or another supported provider.
+
+    <Note>
+      Sandbox plan users receive 200 free GPT-4 calls, so you can explore without adding your own API key right away.
+    </Note>
+  </Step>
+
+  <Step title="Click Create App">
+    From the dashboard, click **Create App** and choose an app type:
+
+    | Type | Description |
+    |---|---|
+    | Chatbot | Conversational app backed by an LLM |
+    | Text Generator | Single-turn text completion |
+    | Agent | LLM with tool access (web search, code execution, etc.) |
+    | Workflow | Visual multi-step pipeline editor |
+  </Step>
+
+  <Step title="Configure your prompt">
+    Use the built-in Prompt IDE to write your system prompt, select a model, and test responses in the preview pane.
+  </Step>
+
+  <Step title="Publish">
+    Click **Publish** to deploy your app. Dify provides a shareable public URL and a REST API endpoint immediately.
+  </Step>
+</Steps>
+
+## Cloud vs. self-hosted
+
+| Feature | Cloud | Self-hosted |
+|---|---|---|
+| Setup time | None | ~5 minutes (Docker Compose) |
+| Infrastructure management | Managed by Dify | Your responsibility |
+| Data residency | Dify's infrastructure | Your infrastructure |
+| Custom model endpoints | Yes | Yes |
+| Vector store choice | Managed | Your choice (Weaviate, Qdrant, Milvus, etc.) |
+| Plugin marketplace | Yes | Yes |
+| Source code access | No | Yes (Apache 2.0) |
+| Enterprise features | Via Team plan | Via enterprise license |
+
+## Data privacy
+
+When you use Dify Cloud:
+
+- Your app configurations, prompts, and knowledge base documents are stored on Dify's infrastructure.
+- Dify does not train models on your data or share it with third parties.
+- API requests to model providers (OpenAI, Anthropic, etc.) are made directly using your own API keys. Dify does not proxy or log the content of those requests.
+- You can export your apps and data at any time from **Settings → Export**.
+
+<Warning>
+  If your use case requires full control over data residency or involves sensitive regulated data (HIPAA, GDPR, etc.), consider [self-hosting Dify](/getting-started/self-hosting) on your own infrastructure.
+</Warning>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Self-hosting" icon="server" href="/getting-started/self-hosting">
+    Deploy Dify on your own infrastructure with Docker Compose, Kubernetes, or a cloud provider.
+  </Card>
+  <Card title="Quickstart" icon="bolt" href="/quickstart">
+    Run Dify locally with Docker Compose in under 5 minutes.
+  </Card>
+</CardGroup>

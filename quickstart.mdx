@@ -1,80 +1,157 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Get Dify running locally in under 5 minutes with Docker Compose."
 ---
 
-## Get started in three steps
+This guide walks you through running Dify on your own machine using Docker Compose — the fastest path to a working local instance.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+<Note>
+Make sure your machine meets these minimum requirements before proceeding.
+</Note>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+| Requirement | Minimum |
+|---|---|
+| CPU | 2 cores |
+| RAM | 4 GiB |
+| Disk | 10 GiB free |
+| Docker | 20.10.0+ |
+| Docker Compose | v2.0.0+ |
 
-### Step 2: Deploy your changes
+Install Docker and Docker Compose from [docs.docker.com](https://docs.docker.com/get-docker/).
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+## Deploy with Docker Compose
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/langgenius/dify.git
+    cd dify
+    ```
+  </Step>
+  <Step title="Configure environment variables">
+    ```bash
+    cd docker
+    cp .env.example .env
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    Open `.env` in your editor. At minimum, change these values for a production-like setup:
 
-### Step 3: Go live
+    ```bash .env
+    # Generate a strong random secret key
+    SECRET_KEY=your-secret-key-here
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    # Change default passwords
+    DB_PASSWORD=difyai123456
+    REDIS_PASSWORD=difyai123456
+    ```
+
+    <Warning>
+    The default `SECRET_KEY` in `.env.example` is a placeholder. Always set a strong unique value — this key is used to sign session tokens and encrypt sensitive data.
+    </Warning>
+  </Step>
+  <Step title="Start all services">
+    ```bash
+    docker compose up -d
+    ```
+
+    This pulls images and starts all containers. The first run may take a few minutes while images download.
+
+    You can follow the logs:
+    ```bash
+    docker compose logs -f
+    ```
+  </Step>
+  <Step title="Check service health">
+    Wait until all containers are healthy:
+    ```bash
+    docker compose ps
+    ```
+
+    You should see these services running:
+
+    | Service | Description |
+    |---|---|
+    | `api` | Flask backend API |
+    | `worker` | Celery task worker |
+    | `web` | Next.js frontend |
+    | `db` | PostgreSQL database |
+    | `redis` | Redis cache/broker |
+    | `nginx` | Reverse proxy |
+    | `weaviate` | Vector database (default) |
+    | `sandbox` | Code execution sandbox |
+  </Step>
+  <Step title="Initialize Dify">
+    Open your browser and navigate to:
+
+    ```
+    http://localhost/install
+    ```
+
+    Complete the admin setup form:
+    1. Enter your admin email and password
+    2. Set your workspace name
+    3. Click **Set Up**
+
+    You will be redirected to the Dify dashboard.
+  </Step>
+  <Step title="Create your first app">
+    From the dashboard:
+    1. Click **Create App** in the top-right corner
+    2. Choose an app type (Chatbot, Agent, Workflow, or Text Generator)
+    3. Enter a name and description
+    4. Click **Create**
+
+    You're now in the Prompt IDE where you can select a model and start building.
+  </Step>
+</Steps>
+
+## Add a model provider
+
+Before your app can generate responses, you need to configure at least one LLM provider.
+
+<Steps>
+  <Step title="Open model settings">
+    Click your workspace avatar in the top-right → **Settings** → **Model Provider**
+  </Step>
+  <Step title="Choose a provider">
+    Select a provider (e.g., OpenAI, Anthropic, Google) and click **Setup**.
+  </Step>
+  <Step title="Enter credentials">
+    Paste your API key and click **Save**. Dify will validate the key before saving.
+  </Step>
+</Steps>
+
+<Tip>
+Don't have API keys? Use **Ollama** to run a local model for free. See [Models & Providers](/models/add-model) for instructions.
+</Tip>
+
+## Stop and restart
+
+```bash
+# Stop all services
+docker compose down
+
+# Restart
+docker compose up -d
+```
+
+Data is persisted in Docker volumes — your apps and knowledge bases are safe across restarts.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Build a chatbot" icon="comments" href="/apps/chatbot">
+    Create a conversational app powered by any LLM.
+  </Card>
+  <Card title="Set up a knowledge base" icon="database" href="/knowledge/create-knowledge-base">
+    Upload documents and enable RAG-based Q&A.
+  </Card>
+  <Card title="Deploy to production" icon="server" href="/deployment/docker-compose">
+    Configure HTTPS, object storage, and a managed database.
+  </Card>
+  <Card title="Use the API" icon="code" href="/api-reference/overview">
+    Integrate Dify into your application via REST API.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

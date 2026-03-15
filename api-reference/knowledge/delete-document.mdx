@@ -1,0 +1,63 @@
+---
+title: "Delete Document"
+description: "DELETE /datasets/:dataset_id/documents/:document_id — Permanently remove a document from a dataset."
+---
+
+## Endpoint
+
+```
+DELETE /datasets/{dataset_id}/documents/{document_id}
+```
+
+## Path Parameters
+
+<ParamField path="dataset_id" type="string" required>
+  UUID of the dataset containing the document.
+</ParamField>
+
+<ParamField path="document_id" type="string" required>
+  UUID of the document to delete.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+
+## Response
+
+Returns `204 No Content` on success.
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `403` | Document is archived and cannot be deleted |
+| `404` | Dataset does not exist or document not found |
+
+<Warning>
+  Archived documents must be un-archived before they can be deleted. Use `PATCH /datasets/{dataset_id}/documents/status/un_archive` first.
+</Warning>
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X DELETE 'https://api.dify.ai/v1/datasets/{dataset_id}/documents/{document_id}' \
+  -H 'Authorization: Bearer {api_key}'
+```
+
+```python Python
+import requests
+
+response = requests.delete(
+    f"https://api.dify.ai/v1/datasets/{dataset_id}/documents/{document_id}",
+    headers={"Authorization": "Bearer {api_key}"},
+)
+print(response.status_code)  # 204
+```
+</CodeGroup>

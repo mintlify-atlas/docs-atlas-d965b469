@@ -1,0 +1,226 @@
+---
+title: "Send Message"
+description: "POST /chat-messages — Send a user message and receive a chat response."
+---
+
+<Note>
+  This endpoint is only available for **Chat**, **Agent Chat**, and **Advanced Chat** app types.
+</Note>
+
+## Endpoint
+
+```
+POST /chat-messages
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="query" type="string" required>
+  The user's input message text.
+</ParamField>
+
+<ParamField body="user" type="string" required>
+  A unique identifier for the end-user. Used for conversation isolation and analytics.
+</ParamField>
+
+<ParamField body="inputs" type="object" required>
+  Key-value pairs for any variables defined in the app's prompt template. Pass an empty object `{}` if no variables are defined.
+</ParamField>
+
+<ParamField body="response_mode" type="string">
+  Controls how the response is delivered.
+
+  - `"blocking"` (default) — waits for the full response and returns it as a single JSON object.
+  - `"streaming"` — returns a stream of Server-Sent Events (SSE).
+</ParamField>
+
+<ParamField body="conversation_id" type="string">
+  UUID of an existing conversation to continue. Omit (or pass `null`) to start a new conversation.
+</ParamField>
+
+<ParamField body="files" type="array">
+  List of files to attach to this message.
+
+  <Expandable title="File object">
+    <ParamField body="type" type="string" required>
+      File type. One of: `"image"`, `"document"`, `"audio"`, `"video"`, `"custom"`.
+    </ParamField>
+    <ParamField body="transfer_method" type="string" required>
+      How the file is provided. `"remote_url"` or `"local_file"`.
+    </ParamField>
+    <ParamField body="url" type="string">
+      Publicly accessible URL of the file. Required when `transfer_method` is `"remote_url"`.
+    </ParamField>
+    <ParamField body="upload_file_id" type="string">
+      ID returned by the [Upload File](/api-reference/files/upload-file) endpoint. Required when `transfer_method` is `"local_file"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="auto_generate_name" type="boolean">
+  Whether to automatically generate a conversation name from the first message. Defaults to `true`.
+</ParamField>
+
+## Responses
+
+### Blocking mode (`response_mode: "blocking"`)
+
+<ResponseField name="message_id" type="string">
+  Unique ID for this message.
+</ResponseField>
+
+<ResponseField name="conversation_id" type="string">
+  UUID of the conversation (new or existing).
+</ResponseField>
+
+<ResponseField name="mode" type="string">
+  App mode. One of `"chat"`, `"agent-chat"`, `"advanced-chat"`.
+</ResponseField>
+
+<ResponseField name="answer" type="string">
+  The model's complete response text.
+</ResponseField>
+
+<ResponseField name="metadata" type="object">
+  <Expandable title="Metadata fields">
+    <ResponseField name="usage" type="object">
+      Token usage information.
+      <Expandable title="Usage fields">
+        <ResponseField name="prompt_tokens" type="integer">Tokens in the prompt.</ResponseField>
+        <ResponseField name="completion_tokens" type="integer">Tokens in the completion.</ResponseField>
+        <ResponseField name="total_tokens" type="integer">Total tokens consumed.</ResponseField>
+        <ResponseField name="total_price" type="string">Estimated cost as a decimal string.</ResponseField>
+        <ResponseField name="currency" type="string">Currency code, e.g. `"USD"`.</ResponseField>
+        <ResponseField name="latency" type="number">Request latency in seconds.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="retriever_resources" type="array">
+      Knowledge base segments that were referenced during generation.
+      <Expandable title="Retriever resource fields">
+        <ResponseField name="position" type="integer">Order of the reference.</ResponseField>
+        <ResponseField name="dataset_id" type="string">Source dataset ID.</ResponseField>
+        <ResponseField name="dataset_name" type="string">Source dataset name.</ResponseField>
+        <ResponseField name="document_id" type="string">Source document ID.</ResponseField>
+        <ResponseField name="document_name" type="string">Source document name.</ResponseField>
+        <ResponseField name="segment_id" type="string">Source segment ID.</ResponseField>
+        <ResponseField name="score" type="number">Relevance score.</ResponseField>
+        <ResponseField name="content" type="string">Segment text content.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp of when the message was created.
+</ResponseField>
+
+### Streaming mode (`response_mode: "streaming"`)
+
+The response is a stream of SSE events. Each line begins with `data: ` followed by a JSON object.
+
+**`message` event** — emitted for each text chunk:
+
+```json
+{
+  "event": "message",
+  "task_id": "abc123",
+  "id": "msg-xyz",
+  "answer": "Hello",
+  "created_at": 1716000000
+}
+```
+
+**`message_end` event** — emitted once at the end of the stream:
+
+```json
+{
+  "event": "message_end",
+  "task_id": "abc123",
+  "id": "msg-xyz",
+  "conversation_id": "conv-123",
+  "metadata": { "usage": { ... }, "retriever_resources": [ ... ] }
+}
+```
+
+**`error` event** — emitted if a stream-level error occurs:
+
+```json
+{
+  "event": "error",
+  "task_id": "abc123",
+  "message_id": "msg-xyz",
+  "status": 400,
+  "code": "invalid_param",
+  "message": "..."
+}
+```
+
+## Error Codes
+
+| HTTP Status | Code | Description |
+|---|---|---|
+| `400` | `invalid_param` | Missing or invalid request parameter |
+| `400` | `app_unavailable` | The app is not properly configured |
+| `400` | `conversation_completed` | The conversation has already ended |
+| `401` | `unauthorized` | Invalid or missing API key |
+| `404` | `not_found` | Conversation not found |
+| `429` | `rate_limit` | Rate limit exceeded |
+| `500` | `provider_not_initialize` | LLM provider credentials not configured |
+| `500` | `provider_quota_exceeded` | LLM provider quota exhausted |
+| `500` | `model_currently_not_support` | The selected model is unavailable |
+| `500` | `completion_request_error` | The LLM provider returned an error |
+
+## Examples
+
+<CodeGroup>
+```bash curl (blocking)
+curl -X POST 'https://api.dify.ai/v1/chat-messages' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "inputs": {},
+    "query": "What is Dify?",
+    "response_mode": "blocking",
+    "user": "user-123"
+  }'
+```
+
+```python Python (blocking)
+import requests
+
+response = requests.post(
+    "https://api.dify.ai/v1/chat-messages",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={
+        "inputs": {},
+        "query": "What is Dify?",
+        "response_mode": "blocking",
+        "user": "user-123",
+    },
+)
+print(response.json())
+```
+
+```bash curl (streaming)
+curl -X POST 'https://api.dify.ai/v1/chat-messages' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: text/event-stream' \
+  --no-buffer \
+  -d '{
+    "inputs": {},
+    "query": "Explain RAG in simple terms.",
+    "response_mode": "streaming",
+    "user": "user-123"
+  }'
+```
+</CodeGroup>

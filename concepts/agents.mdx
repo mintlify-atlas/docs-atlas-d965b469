@@ -1,0 +1,109 @@
+---
+title: "Agents"
+description: "Autonomous reasoning loops that select and invoke tools across multiple steps to answer complex questions."
+keywords: ["agent", "ReAct", "function calling", "chain of thought", "tools", "agent chat"]
+---
+
+An **agent** in Dify is a reasoning loop that iteratively decides which tool to invoke, calls it, observes the result, and repeats until it can produce a final answer. Agents are powered by an LLM that acts as the decision-making core.
+
+Agents are used in two places:
+- **Agent Chat** app mode — a full conversational interface backed by an agent (`api/core/app/apps/agent_chat/`)
+- **Agent node** inside a workflow — a single workflow step that runs the agent loop (`api/core/workflow/nodes/agent/`)
+
+## Agent strategies
+
+The strategy is set on the `AgentEntity` model in `api/core/agent/entities.py`. Two strategies are available:
+
+<Tabs>
+  <Tab title="Chain of Thought (ReAct)">
+    The LLM generates free-form reasoning text interspersed with structured `Action` / `Action Input` blocks. The runner parses each action, invokes the named tool, appends the `Observation` to the scratchpad, and feeds the updated scratchpad back into the next LLM call.
+
+    Implemented by:
+    - `CotChatAgentRunner` — for chat-mode agents (`api/core/agent/cot_chat_agent_runner.py`)
+    - `CotCompletionAgentRunner` — for completion-mode agents (`api/core/agent/cot_completion_agent_runner.py`)
+
+    The loop terminates when `AgentScratchpadUnit.is_final()` returns `True` — i.e., the action name contains both "final" and "answer".
+  </Tab>
+  <Tab title="Function Calling">
+    The LLM uses its native tool-use / function-calling API to declare which function to call and with which arguments. The runner executes the function, returns the result as a tool message, and calls the model again.
+
+    Implemented by `FunctionCallAgentRunner` (`api/core/agent/fc_agent_runner.py`).
+
+    Requires an LLM that supports `ModelFeature.TOOL_CALL`.
+  </Tab>
+</Tabs>
+
+<Note>
+The maximum number of reasoning iterations is set by `AgentEntity.max_iteration` (default: 10). Execution stops and returns the last partial answer if the limit is reached.
+</Note>
+
+## Agent tools
+
+Each agent is configured with a list of `AgentToolEntity` objects, each identifying a tool by its `ToolProviderType`, provider ID, and tool name.
+
+```python
+# api/core/agent/entities.py
+class AgentToolEntity(BaseModel):
+    provider_type: ToolProviderType   # builtin | api | workflow | plugin | mcp | ...
+    provider_id: str
+    tool_name: str
+    tool_parameters: dict[str, Any]
+```
+
+Tool categories available to agents:
+
+<CardGroup cols={2}>
+  <Card title="Built-in tools" icon="wrench" href="/concepts/tools">
+    Audio generation, code execution, web scraping, time utilities, and more — shipped with Dify and available immediately.
+  </Card>
+  <Card title="Plugin tools" icon="puzzle-piece" href="/concepts/plugins">
+    Community or marketplace plugins expose additional tool providers (e.g., Google Search, image generation, database connectors).
+  </Card>
+  <Card title="API tools (custom)" icon="code">
+    Any REST API described by an OpenAPI/Swagger spec can be imported as a custom tool provider and made available to agents.
+  </Card>
+  <Card title="Workflow as tool" icon="diagram-project">
+    Any published workflow can be wrapped as a tool and called by an agent, enabling modular composition of complex pipelines.
+  </Card>
+</CardGroup>
+
+## Scratchpad and output
+
+During execution the base runner maintains an `AgentScratchpadUnit` list:
+
+| Field | Description |
+|---|---|
+| `thought` | The LLM's reasoning text for this step |
+| `action` | The tool to call (name + input) |
+| `observation` | The tool's return value |
+| `agent_response` | Full raw LLM output for this step |
+
+The scratchpad is streamed to the caller as `agent_thought` events so users can follow the reasoning process in real time.
+
+## Plugin-based agent strategies
+
+In the workflow Agent node, strategy resolution is delegated to `PluginAgentStrategyResolver` and `PluginAgentStrategyPresentationProvider` (`api/core/workflow/nodes/agent/plugin_strategy_adapter.py`). This allows plugin authors to ship custom agent strategies that appear alongside ReAct and Function Calling in the node configuration.
+
+## Using agents in Agent Chat mode
+
+<Steps>
+  <Step title="Create an Agent Chat app">
+    In the Dify UI, create a new application and select **Agent** as the app type.
+  </Step>
+  <Step title="Select a model and strategy">
+    Choose an LLM provider and model. Select **Function Calling** if the model supports it; otherwise use **Chain of Thought**.
+  </Step>
+  <Step title="Add tools">
+    Attach built-in tools, plugin tools, or custom API tools. Configure any required credentials (API keys, OAuth tokens) per tool.
+  </Step>
+  <Step title="Set iteration limit and prompt">
+    Optionally customise the system prompt and adjust `max_iteration` for tasks that require more or fewer reasoning steps.
+  </Step>
+  <Step title="Publish and test">
+    Use the built-in chat preview to test multi-step queries before publishing to the API or embedding the widget.
+  </Step>
+</Steps>
+
+<Warning>
+Agents consume more tokens per user turn than plain chat apps because each reasoning step involves at least one additional LLM call. Monitor usage in the LLMOps logs panel.
+</Warning>

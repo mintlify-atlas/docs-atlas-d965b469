@@ -1,122 +1,167 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Dify",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0440d4",
+    "light": "#5da0f3",
+    "dark": "#0440d4"
   },
   "favicon": "/favicon.svg",
+  "logo": {
+    "light": "https://media.brand.dev/e8bfec85-3c14-484f-8b8b-c549c0380636.png",
+    "dark": "https://media.brand.dev/e8bfec85-3c14-484f-8b8b-c549c0380636.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/langgenius/dify"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/langgenius/dify",
+      "twitter": "https://twitter.com/dify_ai",
+      "discord": "https://discord.gg/FngNHpbcY7"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "getting-started/cloud",
+              "getting-started/self-hosting"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/overview",
+              "concepts/workflows",
+              "concepts/rag-pipeline",
+              "concepts/agents",
+              "concepts/models",
+              "concepts/tools",
+              "concepts/plugins"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Building Apps",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "apps/chatbot",
+              "apps/agent",
+              "apps/workflow",
+              "apps/text-generator",
+              "apps/prompt-ide"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Knowledge & RAG",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "knowledge/create-knowledge-base",
+              "knowledge/document-ingestion",
+              "knowledge/retrieval-settings",
+              "knowledge/embedding-models"
+            ]
+          },
+          {
+            "group": "Models & Providers",
+            "pages": [
+              "models/supported-providers",
+              "models/add-model",
+              "models/model-settings"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/docker-compose",
+              "deployment/kubernetes",
+              "deployment/environment-variables",
+              "deployment/upgrade"
+            ]
+          },
+          {
+            "group": "Observability & LLMOps",
+            "pages": [
+              "llmops/logs-and-annotations",
+              "llmops/monitoring",
+              "llmops/tracing-integrations"
+            ]
+          },
+          {
+            "group": "Plugins & Extensions",
+            "pages": [
+              "plugins/overview",
+              "plugins/install-plugin",
+              "plugins/develop-plugin",
+              "plugins/mcp-tools"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/overview",
+              "api-reference/authentication"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Chat",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/chat/send-message",
+              "api-reference/chat/stop-message",
+              "api-reference/chat/get-conversations",
+              "api-reference/chat/delete-conversation",
+              "api-reference/chat/get-messages"
+            ]
+          },
+          {
+            "group": "Completion",
+            "pages": [
+              "api-reference/completion/create-completion",
+              "api-reference/completion/stop-completion"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "api-reference/workflow/run-workflow",
+              "api-reference/workflow/stop-workflow",
+              "api-reference/workflow/get-run"
+            ]
+          },
+          {
+            "group": "Knowledge Base",
+            "pages": [
+              "api-reference/knowledge/create-dataset",
+              "api-reference/knowledge/list-datasets",
+              "api-reference/knowledge/create-document",
+              "api-reference/knowledge/update-document",
+              "api-reference/knowledge/delete-document",
+              "api-reference/knowledge/list-documents"
+            ]
+          },
+          {
+            "group": "Files & Audio",
+            "pages": [
+              "api-reference/files/upload-file",
+              "api-reference/audio/text-to-speech",
+              "api-reference/audio/speech-to-text"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

@@ -1,0 +1,172 @@
+---
+title: "Upgrading Dify"
+description: "How to safely upgrade a Docker Compose deployment of Dify, including database backups, pulling new images, running migrations, and handling breaking changes."
+keywords: ["upgrade", "update", "migration", "backup", "docker compose"]
+---
+
+Upgrading Dify is generally straightforward: back up your data, pull the new images, and restart the stack. Database migrations run automatically on startup when `MIGRATION_ENABLED=true` (the default).
+
+<Warning>
+Always back up your database before upgrading. Migrations may be irreversible. Test upgrades in a staging environment first when possible.
+</Warning>
+
+## Upgrade steps
+
+<Steps>
+  <Step title="Read the release notes">
+    Check the [Dify releases page](https://github.com/langgenius/dify/releases) for the version you are upgrading to. Look for:
+    - Breaking changes to environment variables
+    - Required manual migration steps
+    - New required environment variables
+
+    If new variables have been added to `.env.example`, use the `dify-env-sync.sh` script (see below) to merge them into your `.env` without losing your current values.
+  </Step>
+  <Step title="Back up the database">
+    ```bash
+    # From the docker/ directory
+    docker compose exec db_postgres pg_dumpall -U postgres > backup_$(date +%Y%m%d_%H%M%S).sql
+    ```
+
+    Also copy the entire `./volumes/` directory to a safe location:
+
+    ```bash
+    cp -r ./volumes ./volumes_backup_$(date +%Y%m%d_%H%M%S)
+    ```
+  </Step>
+  <Step title="Pull the latest code">
+    ```bash
+    git fetch origin
+    git pull origin main
+    ```
+
+    Or, if you are pinning to a specific version:
+
+    ```bash
+    git checkout v1.13.0
+    ```
+  </Step>
+  <Step title="Sync new environment variables (optional but recommended)">
+    The `dify-env-sync.sh` script performs a one-way merge from `.env.example` into your `.env`, adding any new variables while preserving your existing values.
+
+    ```bash
+    # From the docker/ directory
+    chmod +x dify-env-sync.sh
+    ./dify-env-sync.sh
+    ```
+
+    The script creates a timestamped backup in `env-backup/` before making any changes.
+  </Step>
+  <Step title="Pull new Docker images">
+    ```bash
+    docker compose pull
+    ```
+
+    This downloads all updated images without stopping the running stack.
+  </Step>
+  <Step title="Restart the stack">
+    ```bash
+    docker compose up -d
+    ```
+
+    Because `MIGRATION_ENABLED=true`, the API container runs any pending database migrations before accepting traffic. Monitor the logs to confirm migrations complete successfully:
+
+    ```bash
+    docker compose logs -f api
+    ```
+
+    You should see output like:
+
+    ```
+    Running migrations...
+    INFO  [alembic.runtime.migration] Running upgrade ...
+    INFO  [alembic.runtime.migration] Done
+    ```
+  </Step>
+  <Step title="Verify the deployment">
+    ```bash
+    # Check all containers are running
+    docker compose ps
+
+    # Test the health endpoint
+    curl http://localhost/health
+    ```
+
+    Navigate to `http://localhost` and confirm the UI loads and your data is intact.
+  </Step>
+</Steps>
+
+## Restore from backup
+
+If something goes wrong, restore the database from your backup:
+
+```bash
+# Stop the stack
+docker compose down
+
+# Restore volumes
+rm -rf ./volumes
+cp -r ./volumes_backup_<timestamp> ./volumes
+
+# Start only the database
+docker compose up -d db_postgres
+
+# Restore the SQL dump
+docker compose exec -T db_postgres psql -U postgres < backup_<timestamp>.sql
+
+# Start the rest of the stack
+docker compose up -d
+```
+
+## Sync environment variables
+
+When upgrading, `.env.example` often gains new variables. The `dify-env-sync.sh` script handles this safely:
+
+```bash
+chmod +x dify-env-sync.sh
+./dify-env-sync.sh
+```
+
+What it does:
+- Creates a timestamped backup of your current `.env` in `env-backup/`
+- Adds variables from `.env.example` that are missing from your `.env`
+- Never overwrites values you have already set
+- Shows a diff of all changes made
+
+<Note>
+Review the diff output after running the script. Some new variables may need values specific to your deployment before the stack can start.
+</Note>
+
+## Handling breaking changes
+
+<AccordionGroup>
+  <Accordion title="Changed variable names">
+    Occasionally a variable is renamed between releases. If the API container fails to start after an upgrade, check the logs:
+
+    ```bash
+    docker compose logs api | grep -i error
+    ```
+
+    Compare your `.env` against `.env.example` in the new version and update any renamed or removed variables.
+  </Accordion>
+  <Accordion title="New required variables">
+    If a new variable is required and missing, the API will typically log a clear error message. Add the variable to your `.env` and restart:
+
+    ```bash
+    docker compose restart api worker
+    ```
+  </Accordion>
+  <Accordion title="Plugin daemon key rotation">
+    If `PLUGIN_DAEMON_KEY` or `PLUGIN_DIFY_INNER_API_KEY` change in a release, you must update both in your `.env` and restart both the `api` and `plugin_daemon` services together to avoid authentication failures between them.
+  </Accordion>
+  <Accordion title="Vector store schema changes">
+    Some upgrades change the internal schema of the vector store. If Knowledge Base search stops working after an upgrade, check the release notes for re-indexing instructions. In severe cases you may need to delete and re-create your Knowledge Bases.
+  </Accordion>
+</AccordionGroup>
+
+## Downgrade
+
+Downgrading is not officially supported and can leave the database in an inconsistent state if migrations have already run. If you need to roll back:
+
+1. Restore the database backup taken before the upgrade.
+2. Check out the older Git tag.
+3. Run `docker compose pull && docker compose up -d`.

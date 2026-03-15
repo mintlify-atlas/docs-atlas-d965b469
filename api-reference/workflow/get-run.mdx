@@ -1,0 +1,96 @@
+---
+title: "Get Workflow Run"
+description: "GET /workflows/run/:workflow_run_id — Retrieve the status and outputs of a workflow run."
+---
+
+## Endpoint
+
+```
+GET /workflows/run/{workflow_run_id}
+```
+
+## Path Parameters
+
+<ParamField path="workflow_run_id" type="string" required>
+  The `workflow_run_id` returned when the workflow was started.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+
+## Response
+
+<ResponseField name="id" type="string">
+  Workflow run UUID.
+</ResponseField>
+
+<ResponseField name="workflow_id" type="string">
+  ID of the workflow definition that was executed.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Execution status. One of: `"succeeded"`, `"failed"`, `"stopped"`, `"running"`, `"paused"`.
+</ResponseField>
+
+<ResponseField name="inputs" type="object">
+  The inputs that were provided when the workflow was started.
+</ResponseField>
+
+<ResponseField name="outputs" type="object">
+  The outputs produced by the workflow. Empty object `{}` if the run is paused or did not complete.
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if the run failed.
+</ResponseField>
+
+<ResponseField name="total_steps" type="integer">
+  Total number of nodes executed.
+</ResponseField>
+
+<ResponseField name="total_tokens" type="integer">
+  Total LLM tokens consumed.
+</ResponseField>
+
+<ResponseField name="elapsed_time" type="number">
+  Total execution time in seconds.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp of when the run was created.
+</ResponseField>
+
+<ResponseField name="finished_at" type="integer">
+  Unix timestamp of when the run completed. `null` if not yet finished.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `404` | Workflow run not found |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl 'https://api.dify.ai/v1/workflows/run/{workflow_run_id}' \
+  -H 'Authorization: Bearer {api_key}'
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    f"https://api.dify.ai/v1/workflows/run/{workflow_run_id}",
+    headers={"Authorization": "Bearer {api_key}"},
+)
+print(response.json())
+```
+</CodeGroup>

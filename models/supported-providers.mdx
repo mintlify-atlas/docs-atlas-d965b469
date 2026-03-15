@@ -1,0 +1,143 @@
+---
+title: "Supported Model Providers"
+description: "A comprehensive list of model providers supported by Dify, grouped by type and capability."
+keywords: ["model providers", "LLM", "embeddings", "reranking", "TTS", "STT", "Ollama", "OpenAI", "Anthropic"]
+---
+
+Dify integrates with a wide range of model providers — from the major cloud APIs to locally hosted models via Ollama. Providers are organized below by category.
+
+## Hosted cloud providers
+
+<CardGroup cols={2}>
+  <Card title="OpenAI" icon="circle-o">
+    GPT-4o, GPT-4 Turbo, GPT-3.5 Turbo, o1, o3, text-embedding-3, Whisper, TTS
+  </Card>
+  <Card title="Anthropic" icon="circle-a">
+    Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+  </Card>
+  <Card title="Google" icon="circle-g">
+    Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini 2.0, text-embedding-004
+  </Card>
+  <Card title="Azure OpenAI" icon="square-a">
+    All OpenAI models deployed through Azure, including GPT-4o and embeddings
+  </Card>
+  <Card title="AWS Bedrock" icon="aws">
+    Claude (Anthropic), Titan, Llama 3, Mistral, Command, Jurassic
+  </Card>
+  <Card title="Cohere" icon="circle-c">
+    Command R+, Command R, embed-english-v3.0, rerank-english-v3.0
+  </Card>
+  <Card title="Mistral" icon="circle-m">
+    Mistral Large, Mistral Small, Mixtral, Mistral Embed
+  </Card>
+  <Card title="Together AI" icon="circle-t">
+    Llama 3, Mistral, Qwen, and other open-weight models via Together's API
+  </Card>
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card title="Moonshot" icon="moon">
+    Moonshot v1 (8k, 32k, 128k)
+  </Card>
+  <Card title="Zhipu (GLM)" icon="circle-z">
+    GLM-4, GLM-4V, GLM-3 Turbo, text_embedding
+  </Card>
+  <Card title="Baidu (ERNIE)" icon="circle-b">
+    ERNIE Bot 4.0, ERNIE Bot 8K, ERNIE-Speed, ERNIE Embedding
+  </Card>
+  <Card title="Hugging Face" icon="circle-h">
+    Thousands of open-weight models via the Inference API
+  </Card>
+</CardGroup>
+
+## Self-hosted / local providers
+
+<CardGroup cols={2}>
+  <Card title="Ollama" icon="server">
+    Run any GGUF/GGML model locally. Supports LLM, embedding, and multimodal models (e.g., Llama 3, Mistral, Qwen, Phi-3, Gemma, nomic-embed-text).
+  </Card>
+  <Card title="LocalAI" icon="computer">
+    OpenAI-compatible local inference server. Drop-in replacement for OpenAI endpoints.
+  </Card>
+  <Card title="OpenLLM" icon="terminal">
+    BentoML's OpenLLM server with OpenAI-compatible API.
+  </Card>
+  <Card title="Xinference" icon="microchip">
+    Distributed inference framework supporting LLM, embedding, reranking, TTS, and image models.
+  </Card>
+</CardGroup>
+
+<Note>
+Ollama is the recommended way to use local models with Dify. After starting Ollama, add it as a provider in **Settings → Model Providers** and set the base URL to `http://host.docker.internal:11434` (Docker) or `http://localhost:11434` (native).
+</Note>
+
+## Additional providers
+
+<AccordionGroup>
+  <Accordion title="Asia-Pacific cloud providers">
+    | Provider | Models |
+    |---|---|
+    | Alibaba Cloud (Tongyi Qianwen) | Qwen-Max, Qwen-Plus, Qwen-Turbo, text-embedding-v2 |
+    | Tencent (Hunyuan) | Hunyuan-lite, Hunyuan-standard, Hunyuan-pro |
+    | ByteDance (Doubao) | Doubao-pro, Doubao-lite |
+    | Minimax | abab6.5s, abab5.5, embo-01 |
+    | 01.AI (Yi) | Yi-Large, Yi-Medium, Yi-Spark |
+    | DeepSeek | DeepSeek-V2, DeepSeek-Coder |
+    | Spark (iFlytek) | Spark Lite, Spark Pro, Spark Max |
+    | Baichuan | Baichuan2-Turbo, Baichuan2-Turbo-192k |
+  </Accordion>
+  <Accordion title="Other global providers">
+    | Provider | Models |
+    |---|---|
+    | Groq | Llama 3, Mixtral, Gemma — ultra-fast inference |
+    | Replicate | Open-weight models via Replicate's API |
+    | Nvidia | NIM API with Llama 3, Mistral, and others |
+    | Perplexity | pplx-7b, pplx-70b, pplx-sonar models |
+    | Jina AI | jina-embeddings-v2, jina-reranker-v1 |
+    | Voyage AI | voyage-2, voyage-large-2 (embeddings + reranking) |
+    | Fireworks AI | Llama 3, Mixtral, and other open models |
+  </Accordion>
+</AccordionGroup>
+
+## Model type support by provider
+
+Dify supports five model types. Not every provider supports all types.
+
+| Type | Description | Example providers |
+|---|---|---|
+| **LLM** | Text generation and chat | OpenAI, Anthropic, Google, Ollama |
+| **Text embedding** | Convert text to vector representations for RAG | OpenAI (`text-embedding-3`), Cohere (`embed-v3`), Ollama (`nomic-embed-text`) |
+| **Reranking** | Re-score retrieved documents for relevance | Cohere (`rerank-v3`), Jina AI, Voyage AI |
+| **Text-to-speech (TTS)** | Generate spoken audio from text | OpenAI (`tts-1`), Azure OpenAI |
+| **Speech-to-text (STT)** | Transcribe audio to text | OpenAI (`whisper-1`), Azure OpenAI |
+
+<Tip>
+You can configure multiple providers simultaneously. Dify lets you assign different providers for different model types — for example, OpenAI for LLM and Cohere for reranking.
+</Tip>
+
+## Using Ollama for local models
+
+Ollama lets you run large language models entirely on your own hardware with no API key required.
+
+<Steps>
+  <Step title="Install and start Ollama">
+    Download from [ollama.com](https://ollama.com) and pull a model:
+
+    ```bash
+    ollama pull llama3
+    ollama pull nomic-embed-text
+    ```
+  </Step>
+  <Step title="Add Ollama as a provider in Dify">
+    Go to **Settings → Model Providers → Ollama**. Set the base URL:
+
+    - Docker deployment: `http://host.docker.internal:11434`
+    - Native / same host: `http://localhost:11434`
+  </Step>
+  <Step title="Add individual models">
+    In the Ollama provider settings, click **Add Model** and enter the model name exactly as shown in `ollama list` (e.g., `llama3`, `nomic-embed-text`).
+  </Step>
+  <Step title="Set as system model">
+    Go to **Settings → Model Providers → System Model Settings** and assign your Ollama model as the default LLM or embedding model.
+  </Step>
+</Steps>

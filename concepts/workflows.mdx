@@ -1,0 +1,161 @@
+---
+title: "Workflows"
+description: "DAG-based pipelines that connect LLMs, code, tools, knowledge bases, and control-flow logic into repeatable, observable applications."
+keywords: ["workflow", "chatflow", "nodes", "DAG", "pipeline", "variables"]
+---
+
+A **Workflow** in Dify is a directed acyclic graph (DAG) whose nodes represent discrete processing steps and whose edges define execution order and data flow. Workflows are authored visually in the browser and persisted as a JSON graph configuration that the workflow engine evaluates at runtime.
+
+## Workflow vs. Chatflow
+
+Dify offers two workflow-based application types:
+
+| | Workflow | Chatflow |
+|---|---|---|
+| **Turn model** | Single-shot — one input produces one output | Multi-turn — maintains conversation history |
+| **Start node** | `START` node receives user inputs | `START` node plus system variable `sys.conversation_id` |
+| **Answer node** | `END` node finalises output | `ANSWER` node streams partial responses |
+| **Memory** | No built-in turn memory | LLM nodes can enable token-buffer memory |
+| **Use case** | Batch processing, ETL pipelines, document automation | Conversational assistants with context |
+
+<Note>
+Both types share the same node registry and variable system. The distinction is surfaced in the app mode, not the graph engine.
+</Note>
+
+## Node types
+
+The workflow engine (`api/core/workflow/node_factory.py`) maintains a registry of node types. The built-in types defined in `BuiltinNodeTypes` are:
+
+<AccordionGroup>
+  <Accordion title="START / END / ANSWER">
+    **START** — Entry point for a workflow. Declares the input schema (text, number, select, file, etc.) that callers must supply.
+
+    **END** — Terminates a Workflow app and collects final output variables.
+
+    **ANSWER** — Streams a text response in Chatflow apps; supports Jinja2 template syntax to interpolate upstream variables.
+  </Accordion>
+
+  <Accordion title="LLM">
+    Calls any configured large-language model with a prompt assembled from static text, variables, and optionally conversation memory. Accepts vision inputs when the selected model supports them. Outputs `text`, `usage`, and `finish_reason`.
+  </Accordion>
+
+  <Accordion title="Code">
+    Executes a sandboxed snippet of Python or JavaScript. Inputs and outputs are declared as typed variables. The executor enforces configurable limits on string length, numeric range, array size, and recursion depth (`api/core/workflow/node_factory.py` — `CodeNodeLimits`).
+  </Accordion>
+
+  <Accordion title="Knowledge Retrieval">
+    Queries one or more knowledge bases and returns ranked document chunks. Retrieval strategy (semantic, full-text, hybrid, or keyword) and top-K are configurable per node. Implemented in `api/core/workflow/nodes/knowledge_retrieval/`.
+  </Accordion>
+
+  <Accordion title="Knowledge Index">
+    Indexes content into a knowledge base from within a workflow — useful for pipelines that ingest data before retrieval. Implemented in `api/core/workflow/nodes/knowledge_index/`.
+  </Accordion>
+
+  <Accordion title="HTTP Request">
+    Makes an outbound HTTP call (GET, POST, PUT, PATCH, DELETE). Supports header and body templating, binary file uploads, and configurable timeouts and size limits. SSRF protections are applied via the `ssrf_proxy` client.
+  </Accordion>
+
+  <Accordion title="Template Transform">
+    Renders a Jinja2 template using upstream variables to produce a string output. The renderer is backed by the same sandboxed code executor used by the Code node.
+  </Accordion>
+
+  <Accordion title="Question Classifier">
+    Classifies an input question into one of N categories using an LLM, then routes execution to the matching branch. Useful for intent routing without writing code.
+  </Accordion>
+
+  <Accordion title="Parameter Extractor">
+    Uses an LLM to extract structured parameters from free-form text according to a declared output schema. Returns typed output variables directly.
+  </Accordion>
+
+  <Accordion title="IF / ELSE">
+    Evaluates a boolean condition on variable values and routes execution to one of two branches. Conditions support equality, comparison, contains, and regex operators.
+  </Accordion>
+
+  <Accordion title="Iteration">
+    Loops over a list variable, executing an inner sub-graph for each element. Child node outputs are aggregated into an output list. The `ITERATION_START` node marks the entry of the inner graph.
+  </Accordion>
+
+  <Accordion title="Loop / Loop End / Loop Start">
+    A general-purpose loop that repeats an inner sub-graph until a break condition is met or a maximum iteration count is reached.
+  </Accordion>
+
+  <Accordion title="Variable Aggregator / Legacy Variable Aggregator">
+    Merges outputs from multiple parallel branches into a single variable, resolving the first non-null value or concatenating strings.
+  </Accordion>
+
+  <Accordion title="Variable Assigner">
+    Explicitly assigns a value to a named workflow variable, enabling stateful patterns inside loops.
+  </Accordion>
+
+  <Accordion title="List Operator">
+    Filters, sorts, slices, or extracts distinct values from a list variable without requiring a Code node.
+  </Accordion>
+
+  <Accordion title="Document Extractor">
+    Extracts plain text from an uploaded file (PDF, DOCX, HTML, CSV, etc.) using the Unstructured API or built-in parsers. Outputs a `text` variable for downstream nodes.
+  </Accordion>
+
+  <Accordion title="Tool">
+    Invokes any tool registered in the tool engine — built-in, API-defined, workflow-as-tool, or plugin — and maps tool outputs to workflow variables.
+  </Accordion>
+
+  <Accordion title="Agent">
+    Runs a full agent loop (ReAct or Function Calling) as a single workflow step. The agent has access to its own tool list and iterates until a final answer is produced. Implemented in `api/core/workflow/nodes/agent/`.
+  </Accordion>
+
+  <Accordion title="Human Input">
+    Pauses workflow execution and surfaces a form to a human reviewer. Execution resumes once the form is submitted. Backed by `HumanInputFormRepositoryImpl`.
+  </Accordion>
+
+  <Accordion title="Datasource">
+    Reads data from a configured external datasource. Implemented in `api/core/workflow/nodes/datasource/`.
+  </Accordion>
+
+  <Accordion title="Trigger nodes (Webhook, Schedule, Plugin)">
+    Start nodes that launch a workflow from an inbound webhook event, a cron schedule, or a plugin-defined trigger. Implemented in `api/core/workflow/nodes/trigger_webhook/`, `trigger_schedule/`, and `trigger_plugin/`.
+  </Accordion>
+</AccordionGroup>
+
+## Variables and data flow
+
+Every node declares **input** and **output** variables. Variables are referenced with the syntax `{{node_id.variable_name}}` in prompts and templates, or by selector path in the visual editor.
+
+At runtime the workflow engine maintains a **variable pool** (`dify_graph.runtime`) that is populated as nodes complete. Nodes can read any upstream variable whose node has already executed; the graph engine enforces evaluation order automatically.
+
+**System variables** (prefixed `sys.`) are injected by the runner before execution begins:
+
+| Variable | Description |
+|---|---|
+| `sys.query` | The user's input text |
+| `sys.files` | Uploaded files |
+| `sys.conversation_id` | Current conversation ID (Chatflow only) |
+| `sys.user_id` | Authenticated user ID |
+| `sys.app_id` | The running application ID |
+
+## Triggering workflows
+
+<Tabs>
+  <Tab title="REST API">
+    Send a `POST /v1/workflows/run` request with an `inputs` object matching the START node's declared schema. Supports both blocking and streaming (`response_mode: stream`) response modes.
+
+    ```bash
+    curl -X POST https://api.dify.ai/v1/workflows/run \
+      -H "Authorization: Bearer {API_KEY}" \
+      -H "Content-Type: application/json" \
+      -d '{"inputs": {"query": "Summarise this document"}, "response_mode": "blocking"}'
+    ```
+  </Tab>
+  <Tab title="Webhook trigger">
+    Add a **Webhook** trigger node as the START node. Dify generates a unique webhook URL. Any inbound `POST` to that URL starts the workflow, with the request body mapped to workflow variables.
+  </Tab>
+  <Tab title="Scheduled trigger">
+    Add a **Schedule** trigger node and configure a cron expression. The scheduler invokes the workflow automatically on the defined cadence without any external caller.
+  </Tab>
+  <Tab title="Plugin trigger">
+    A plugin can register a custom trigger provider that starts workflows in response to external events (e.g., a new email, a Slack message). Implemented via `api/core/workflow/nodes/trigger_plugin/`.
+  </Tab>
+</Tabs>
+
+<Tip>
+Use the **Debug & Preview** panel in the workflow canvas to run a workflow step-by-step and inspect each node's inputs, outputs, and execution time before publishing.
+</Tip>

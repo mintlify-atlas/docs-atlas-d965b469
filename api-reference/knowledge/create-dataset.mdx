@@ -1,0 +1,146 @@
+---
+title: "Create Dataset"
+description: "POST /datasets — Create a new knowledge base dataset."
+---
+
+## Endpoint
+
+```
+POST /datasets
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="name" type="string" required>
+  Dataset name. Must be 1–40 characters.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional dataset description. Maximum 400 characters.
+</ParamField>
+
+<ParamField body="indexing_technique" type="string">
+  How documents in this dataset are indexed.
+
+  - `"high_quality"` — uses an embedding model for semantic search.
+  - `"economy"` — uses keyword (BM25) indexing; no embedding model required.
+</ParamField>
+
+<ParamField body="permission" type="string">
+  Access control. One of:
+  - `"only_me"` (default) — only the creator can access.
+  - `"all_team_members"` — all workspace members can access.
+  - `"partial_members"` — specific members listed in `partial_member_list`.
+</ParamField>
+
+<ParamField body="provider" type="string">
+  Data provider. Defaults to `"vendor"` (Dify-managed). Set to `"external"` for external knowledge bases.
+</ParamField>
+
+<ParamField body="embedding_model" type="string">
+  Name of the embedding model to use (e.g. `"text-embedding-ada-002"`). Required when `indexing_technique` is `"high_quality"`.
+</ParamField>
+
+<ParamField body="embedding_model_provider" type="string">
+  Provider of the embedding model (e.g. `"openai"`). Required with `embedding_model`.
+</ParamField>
+
+<ParamField body="retrieval_model" type="object">
+  Retrieval configuration.
+
+  <Expandable title="Retrieval model fields">
+    <ParamField body="search_method" type="string">
+      One of: `"semantic_search"`, `"keyword_search"`, `"full_text_search"`, `"hybrid_search"`.
+    </ParamField>
+    <ParamField body="reranking_enable" type="boolean">Whether to enable reranking.</ParamField>
+    <ParamField body="reranking_model" type="object">
+      <Expandable title="Reranking model">
+        <ParamField body="reranking_provider_name" type="string">Reranking model provider.</ParamField>
+        <ParamField body="reranking_model_name" type="string">Reranking model name.</ParamField>
+      </Expandable>
+    </ParamField>
+    <ParamField body="top_k" type="integer">Number of top results to return.</ParamField>
+    <ParamField body="score_threshold_enabled" type="boolean">Whether to filter by relevance score.</ParamField>
+    <ParamField body="score_threshold" type="number">Minimum relevance score (0–1).</ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="external_knowledge_api_id" type="string">
+  External knowledge API ID. Only applicable when `provider` is `"external"`.
+</ParamField>
+
+<ParamField body="external_knowledge_id" type="string">
+  External knowledge base ID. Only applicable when `provider` is `"external"`.
+</ParamField>
+
+## Response
+
+Returns the created dataset object.
+
+<ResponseField name="id" type="string">Dataset UUID.</ResponseField>
+<ResponseField name="name" type="string">Dataset name.</ResponseField>
+<ResponseField name="description" type="string">Dataset description.</ResponseField>
+<ResponseField name="provider" type="string">Data provider (`"vendor"` or `"external"`).</ResponseField>
+<ResponseField name="permission" type="string">Access permission level.</ResponseField>
+<ResponseField name="indexing_technique" type="string">Indexing technique in use.</ResponseField>
+<ResponseField name="embedding_model" type="string">Embedding model name.</ResponseField>
+<ResponseField name="embedding_model_provider" type="string">Embedding model provider.</ResponseField>
+<ResponseField name="embedding_available" type="boolean">Whether the configured embedding model is available.</ResponseField>
+<ResponseField name="document_count" type="integer">Number of documents in the dataset.</ResponseField>
+<ResponseField name="word_count" type="integer">Total word count across all documents.</ResponseField>
+<ResponseField name="created_by" type="string">Account ID of the creator.</ResponseField>
+<ResponseField name="created_at" type="integer">Unix timestamp of creation.</ResponseField>
+<ResponseField name="updated_at" type="integer">Unix timestamp of last update.</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Code | Description |
+|---|---|---|
+| `400` | `invalid_param` | Invalid or missing parameters |
+| `400` | `dataset_name_duplicate` | A dataset with this name already exists |
+| `401` | `unauthorized` | Invalid or missing API key |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/datasets' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "My Knowledge Base",
+    "description": "Product documentation",
+    "indexing_technique": "high_quality",
+    "permission": "only_me",
+    "embedding_model": "text-embedding-ada-002",
+    "embedding_model_provider": "openai"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.dify.ai/v1/datasets",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={
+        "name": "My Knowledge Base",
+        "description": "Product documentation",
+        "indexing_technique": "high_quality",
+        "permission": "only_me",
+        "embedding_model": "text-embedding-ada-002",
+        "embedding_model_provider": "openai",
+    },
+)
+print(response.json())
+```
+</CodeGroup>

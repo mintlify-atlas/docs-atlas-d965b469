@@ -1,0 +1,218 @@
+---
+title: "Building a workflow"
+description: "Design multi-step AI pipelines on a visual canvas using Dify's Workflow and Chatflow app types."
+keywords: ["workflow", "chatflow", "nodes", "canvas", "LLM", "knowledge retrieval", "code node", "HTTP request"]
+---
+
+A Dify workflow is a directed graph of nodes that you design on a visual canvas. Each run of the workflow follows a fixed execution path, making it suitable for deterministic, multi-step pipelines.
+
+Dify offers two workflow variants:
+
+<CardGroup cols={2}>
+  <Card title="Workflow" icon="diagram-project">
+    A single-run pipeline. Takes structured inputs, processes them through the graph, and returns outputs. Exposed as `POST /v1/workflows/run`.
+  </Card>
+  <Card title="Chatflow (Advanced Chat)" icon="comments">
+    A workflow with a built-in conversation loop. Users interact through a chat interface; each turn triggers a workflow run. Exposed as `POST /v1/chat-messages`.
+  </Card>
+</CardGroup>
+
+The underlying graph engine is the same for both variants. The difference is that Chatflow adds conversation history variables (`sys.conversation_id`, `sys.dialogue_count`) and uses an **Answer** node to stream text back to the user.
+
+## The visual canvas
+
+Open a workflow app in Dify to see the canvas. The canvas is a pan-and-zoom workspace where you:
+
+- **Add nodes** by clicking the `+` button on any node's output handle, or by right-clicking the canvas.
+- **Connect nodes** by dragging from an output handle to an input handle.
+- **Configure nodes** by clicking on them to open the node settings panel on the right.
+- **Delete nodes or edges** by selecting them and pressing `Backspace`.
+
+Nodes are arranged left to right; execution follows the edges you draw.
+
+## Node types
+
+### Core nodes
+
+<AccordionGroup>
+  <Accordion title="Start">
+    Every workflow has exactly one Start node. It defines the input variables the workflow accepts. Each variable has a name, type (`string`, `number`, `file`, etc.), and an optional default value.
+
+    Chatflow apps automatically add system variables (`sys.query`, `sys.user_id`, `sys.conversation_id`) to the Start node's outputs.
+  </Accordion>
+
+  <Accordion title="LLM">
+    Calls a language model. You configure:
+    - The model and provider
+    - A system prompt (can reference upstream variables with `{{variable_name}}`)
+    - Model parameters (temperature, max tokens, etc.)
+    - Whether to use structured output (JSON schema)
+
+    The node outputs the LLM's text response and, when structured output is enabled, a parsed JSON object.
+  </Accordion>
+
+  <Accordion title="Knowledge retrieval">
+    Queries one or more knowledge bases and returns matching document chunks. Configure:
+    - Which knowledge bases to search
+    - Retrieval mode: `single` (one knowledge base) or `multiple` (hybrid retrieval across many)
+    - Top-K and score threshold
+    - Optional reranking model
+    - Metadata filtering conditions
+
+    The node outputs a list of retrieved segments that you can pass to an LLM node as context.
+  </Accordion>
+
+  <Accordion title="Code">
+    Executes a Python or JavaScript snippet in a sandboxed environment. Use it for data transformation, formatting, or any computation that's awkward to express in a prompt.
+
+    Inputs and outputs are declared explicitly. The sandbox has no network access and a strict execution timeout.
+  </Accordion>
+
+  <Accordion title="HTTP request">
+    Makes an outbound HTTP call (GET, POST, PUT, PATCH, DELETE). Configure headers, query parameters, request body, and optionally inject workflow variables into any field.
+
+    Outputs include the response body, status code, and headers. Use this node to call external APIs, webhooks, or internal services.
+  </Accordion>
+
+  <Accordion title="If/Else (conditional)">
+    Routes execution down different branches based on a condition. Supports string, number, and array comparisons. Each branch is an independent sub-path in the graph.
+  </Accordion>
+
+  <Accordion title="Question classifier">
+    Uses an LLM to classify the input into one of N user-defined categories, then routes to the matching branch. A convenient alternative to writing if/else logic for intent routing.
+  </Accordion>
+
+  <Accordion title="Answer (Chatflow only)">
+    Streams text back to the user during a Chatflow run. You can have multiple Answer nodes in a single run to stream partial responses as work progresses.
+  </Accordion>
+
+  <Accordion title="End (Workflow only)">
+    Marks the end of a Workflow run and defines which variables to include in the output payload. A workflow can have multiple End nodes reached via different branches.
+  </Accordion>
+</AccordionGroup>
+
+### Advanced nodes
+
+| Node | Purpose |
+|---|---|
+| **Template transform** | Renders a Jinja2 template using workflow variables. |
+| **Variable assigner** | Writes a value into a workflow variable for use downstream. |
+| **Parameter extractor** | Uses an LLM to extract structured fields from unstructured text. |
+| **Document extractor** | Parses uploaded files (PDF, DOCX, etc.) into plain text. |
+| **List operator** | Filters, deduplicates, or sorts list variables. |
+| **Iteration** | Loops over a list variable, running a sub-graph for each item. |
+| **Loop** | Repeats a sub-graph a fixed number of times or until a condition is met. |
+| **Tool** | Calls any configured tool (built-in or custom API). |
+| **Agent** | Runs an embedded agent node with its own tool set and strategy. |
+| **Human input** | Pauses the workflow and waits for a human to supply input before continuing. |
+
+## Setting workflow inputs (variables)
+
+Workflow inputs are declared on the **Start** node. Each input variable has:
+
+- **Variable name** — the key used to reference it in downstream nodes (e.g., `user_query`)
+- **Type** — `string`, `number`, `select` (enum), `paragraph`, or `file`
+- **Label** — displayed in the web UI and API documentation
+- **Required** — whether the caller must provide a value
+- **Default value** — used when no value is provided
+
+Reference an input variable anywhere in a node's configuration using `{{start.variable_name}}`.
+
+## Testing a workflow run
+
+<Steps>
+  <Step title="Open the run panel">
+    Click **Run** (the play button) in the toolbar. A panel opens on the right with input fields for each Start node variable.
+  </Step>
+
+  <Step title="Provide test inputs">
+    Fill in values for each input variable. Click **Run** to start the workflow.
+  </Step>
+
+  <Step title="Inspect the trace">
+    Dify shows an execution trace as the workflow runs. Each node displays:
+    - Input values it received
+    - Output values it produced
+    - Execution time and token usage
+    - Any errors
+
+    Click a node in the trace to see its full input/output detail.
+  </Step>
+
+  <Step title="Single-node testing">
+    Right-click any node and select **Test this node** to run it in isolation with custom inputs, without executing the full workflow.
+  </Step>
+</Steps>
+
+## Publishing as an API endpoint
+
+Once your workflow is ready:
+
+1. Click **Publish** to promote the current draft to the published version.
+2. Go to **API → API Key** and copy your key.
+3. Call the workflow:
+
+```bash
+curl -X POST https://your-dify-domain/v1/workflows/run \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputs": {
+      "user_query": "Summarize the latest AI research"
+    },
+    "response_mode": "streaming",
+    "user": "user-abc"
+  }'
+```
+
+You can also run a specific published version by its ID:
+
+```bash
+curl -X POST https://your-dify-domain/v1/workflows/{workflow_id}/run \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  ...
+```
+
+### Response modes
+
+| Mode | Behavior |
+|---|---|
+| `blocking` | Waits for the full workflow to complete and returns the final outputs in a single JSON response. |
+| `streaming` | Returns server-sent events as each node completes, including intermediate outputs. |
+
+### Checking run status
+
+Retrieve the status and outputs of a specific run:
+
+```bash
+curl https://your-dify-domain/v1/workflows/run/{workflow_run_id} \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+The response includes `status` (`succeeded`, `failed`, `stopped`), `total_steps`, `total_tokens`, and `elapsed_time`.
+
+## Chatflow vs. basic workflow
+
+| Dimension | Workflow | Chatflow |
+|---|---|---|
+| App mode | `workflow` | `advanced-chat` |
+| Trigger | API call or web form | Chat message |
+| Conversation history | Not available | Available via `sys.conversation_id` |
+| Streaming UI | Optional | Built-in chat interface |
+| Answer node | Not available | Required for streaming replies |
+| API endpoint | `POST /v1/workflows/run` | `POST /v1/chat-messages` |
+
+<Tip>
+  Use Chatflow when users interact conversationally and you need conversation memory. Use a basic Workflow when you want a clean input→output pipeline invoked by an API or scheduled trigger.
+</Tip>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Building a chatbot" icon="message" href="/apps/chatbot">
+    Simpler conversational apps without a visual canvas.
+  </Card>
+  <Card title="Knowledge & RAG" icon="book" href="/knowledge/create-knowledge-base">
+    Connect knowledge bases to your workflow's Knowledge Retrieval node.
+  </Card>
+</CardGroup>

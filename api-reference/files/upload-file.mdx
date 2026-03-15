@@ -1,0 +1,124 @@
+---
+title: "Upload File"
+description: "POST /files/upload — Upload a file to use as an attachment in chat or completion requests."
+---
+
+## Endpoint
+
+```
+POST /files/upload
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `multipart/form-data` |
+
+### Form Fields
+
+<ParamField body="file" type="file" required>
+  The file to upload. Only one file per request is accepted.
+</ParamField>
+
+<ParamField body="user" type="string">
+  The end-user identifier. Provided as a form field (not JSON).
+</ParamField>
+
+### Supported File Types
+
+Accepted formats depend on your app's file upload configuration. Common types include:
+
+- **Images**: `jpg`, `jpeg`, `png`, `gif`, `webp`, `svg`
+- **Documents**: `txt`, `md`, `pdf`, `html`, `xlsx`, `xls`, `docx`, `csv`
+- **Audio**: `mp3`, `m4a`, `wav`, `webm`, `amr`
+- **Video**: `mp4`, `mov`, `mpeg`, `mpga`
+
+## Response
+
+Returns `201 Created` with the uploaded file object.
+
+<ResponseField name="id" type="string">
+  Unique file ID. Use this as `upload_file_id` when attaching the file to a message.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Original filename.
+</ResponseField>
+
+<ResponseField name="size" type="integer">
+  File size in bytes.
+</ResponseField>
+
+<ResponseField name="extension" type="string">
+  File extension (without the dot), e.g. `"pdf"`.
+</ResponseField>
+
+<ResponseField name="mime_type" type="string">
+  MIME type of the uploaded file, e.g. `"application/pdf"`.
+</ResponseField>
+
+<ResponseField name="created_by" type="string">
+  Account ID of the uploader.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp of the upload.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Code | Description |
+|---|---|---|
+| `400` | `no_file_uploaded` | Request did not include a file |
+| `400` | `too_many_files` | More than one file was included |
+| `400` | `filename_not_exists` | File has no name |
+| `401` | `unauthorized` | Invalid or missing API key |
+| `413` | `file_too_large` | File exceeds the configured size limit |
+| `415` | `unsupported_file_type` | File type is not permitted |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/files/upload' \
+  -H 'Authorization: Bearer {api_key}' \
+  -F 'file=@/path/to/document.pdf' \
+  -F 'user=user-123'
+```
+
+```python Python
+import requests
+
+with open("/path/to/document.pdf", "rb") as f:
+    response = requests.post(
+        "https://api.dify.ai/v1/files/upload",
+        headers={"Authorization": "Bearer {api_key}"},
+        files={"file": ("document.pdf", f, "application/pdf")},
+        data={"user": "user-123"},
+    )
+print(response.json())
+```
+</CodeGroup>
+
+## Using Uploaded Files
+
+After uploading, reference the file in a chat or workflow request using its `id`:
+
+```json
+{
+  "query": "Summarize this document.",
+  "user": "user-123",
+  "inputs": {},
+  "files": [
+    {
+      "type": "document",
+      "transfer_method": "local_file",
+      "upload_file_id": "<id from upload response>"
+    }
+  ]
+}
+```

@@ -1,0 +1,129 @@
+---
+title: "Model Settings"
+description: "Reference for model parameters such as temperature, top_p, and max tokens, plus per-app configuration, global defaults, and load balancing."
+keywords: ["temperature", "top_p", "max tokens", "model parameters", "load balancing", "fallback", "model settings"]
+---
+
+Dify exposes the most common inference parameters directly in the app editor. You can set defaults at the global level (system model settings) and override them per-app or even per-node in a Workflow.
+
+## Parameter reference
+
+<AccordionGroup>
+  <Accordion title="Temperature">
+    Controls the randomness of the model's output.
+
+    - **Range**: `0.0` – `2.0` (exact range varies by provider)
+    - **Low values** (0.0–0.3): deterministic, focused answers — good for factual Q&A and code generation
+    - **High values** (0.8–1.5): creative, diverse outputs — good for brainstorming and creative writing
+    - **Default**: typically `1.0`
+
+    ```json
+    { "temperature": 0.7 }
+    ```
+  </Accordion>
+  <Accordion title="Top P (nucleus sampling)">
+    Alternative to temperature. The model considers only the smallest set of tokens whose cumulative probability exceeds `top_p`.
+
+    - **Range**: `0.0` – `1.0`
+    - **0.1**: very focused; only the most likely tokens are considered
+    - **0.9**: broad sampling; most of the token distribution is available
+    - **Default**: `1.0` (disabled — all tokens considered)
+
+    <Note>It is generally recommended to change either `temperature` **or** `top_p`, not both simultaneously.</Note>
+  </Accordion>
+  <Accordion title="Max Tokens">
+    The maximum number of tokens the model can generate in a single response. Does not include the tokens in the prompt.
+
+    - Setting this too low truncates responses mid-sentence.
+    - Setting it higher than the model's context window has no effect.
+    - The platform-wide prompt generation limit is controlled by `PROMPT_GENERATION_MAX_TOKENS` (default `512`) and code generation by `CODE_GENERATION_MAX_TOKENS` (default `1024`).
+  </Accordion>
+  <Accordion title="Frequency Penalty">
+    Reduces the likelihood of the model repeating the same phrases by penalising tokens proportionally to how often they have already appeared.
+
+    - **Range**: `-2.0` – `2.0`
+    - Positive values reduce repetition; negative values encourage it.
+    - **Default**: `0`
+  </Accordion>
+  <Accordion title="Presence Penalty">
+    Applies a flat penalty to any token that has already appeared at least once, encouraging the model to introduce new topics.
+
+    - **Range**: `-2.0` – `2.0`
+    - Positive values push the model towards new subjects.
+    - **Default**: `0`
+  </Accordion>
+  <Accordion title="Stop Sequences">
+    One or more strings that, when generated, cause the model to stop immediately. The stop sequence itself is not included in the output.
+
+    ```json
+    { "stop": ["\n\nHuman:", "###"] }
+    ```
+
+    Useful for structured output formats or role-play scenarios where you need to delimit turns.
+  </Accordion>
+</AccordionGroup>
+
+## Per-app model configuration
+
+Each Dify app has its own **Model** panel in the Prompt Engineering / Orchestration editor. Settings here override the global system defaults only for that app.
+
+<Steps>
+  <Step title="Open the app editor">
+    From your workspace, open the app you want to configure and go to the **Orchestrate** tab.
+  </Step>
+  <Step title="Expand the Model section">
+    In the right-hand panel, click the model selector at the top to choose a provider and model. Below it you will find parameter sliders for the parameters described above.
+  </Step>
+  <Step title="Adjust parameters">
+    Drag the sliders or type values directly. Changes take effect immediately for test runs within the editor.
+  </Step>
+  <Step title="Publish">
+    Click **Publish** to apply changes to the live app.
+  </Step>
+</Steps>
+
+## Global defaults
+
+Global model defaults are set under **Settings → Model Providers → System Model Settings**. These apply to any app that has not been given an explicit model assignment and to internal platform operations such as Knowledge Base indexing.
+
+| Type | Used for |
+|---|---|
+| Default LLM | Apps without an explicit model, agent reasoning |
+| Default embedding | Knowledge Base document indexing and retrieval |
+| Default reranking | Knowledge Base retrieval when reranking is enabled |
+| Default TTS | Voice output in chat apps |
+| Default STT | Voice input transcription |
+
+## Model load balancing
+
+For production deployments that need high throughput or resilience, Dify supports load balancing across multiple sets of credentials for the same model. This is implemented in `ModelManager` and `LBModelManager` in the backend.
+
+**How it works:**
+- You add multiple API key configurations under a single model entry.
+- Dify selects credentials using **round-robin**, cycling through the list on every invocation.
+- If a key hits a rate limit (`InvokeRateLimitError`), that configuration is placed in a **cooldown** for 60 seconds.
+- If a key returns an authorization or connection error, it is cooled down for 10 seconds.
+- If all configurations are in cooldown simultaneously, Dify raises the last recorded exception.
+
+<Steps>
+  <Step title="Open model settings">
+    Go to **Settings → Model Providers**, find your provider, and click the settings icon next to a model.
+  </Step>
+  <Step title="Enable load balancing">
+    Toggle on **Load Balancing** and click **Add Configuration**.
+  </Step>
+  <Step title="Add credential sets">
+    Add each API key or credential set you want to include in the rotation. You can add as many as needed.
+  </Step>
+  <Step title="Save">
+    Click **Save**. Load balancing activates immediately for all apps using this model.
+  </Step>
+</Steps>
+
+<Tip>
+Load balancing is particularly useful when a single API key has low rate limits. Distributing load across multiple project keys or accounts can multiply your effective throughput.
+</Tip>
+
+## Workflow node overrides
+
+In Workflow apps, individual LLM nodes can have their own model and parameter configuration, independent of both the app-level default and the system default. This lets you use a fast, cheap model for classification steps while using a powerful model for the final generation step — all within the same workflow.

@@ -1,0 +1,261 @@
+---
+title: "Developing plugins"
+description: "Build a Dify plugin that adds new tools, model providers, or HTTP endpoints to any Dify workspace."
+---
+
+Dify plugins are packaged as `.difypkg` archives. A plugin contains a manifest, one or more provider definition files, and the runtime code that executes when the plugin is invoked.
+
+## Prerequisites
+
+- Python 3.10 or later
+- The Dify plugin SDK (`pip install dify-plugin`)
+- A running Dify instance for local testing (see [Quickstart](/quickstart))
+
+## Plugin structure
+
+A typical plugin directory looks like this:
+
+```
+my-plugin/
+├── manifest.yaml          # Plugin declaration
+├── provider/
+│   └── my_tool.yaml       # Tool provider definition
+├── tools/
+│   └── my_tool.py         # Tool implementation
+├── _assets/
+│   └── icon.svg           # Plugin icon
+└── requirements.txt       # Python dependencies
+```
+
+For a model provider plugin:
+
+```
+my-model-provider/
+├── manifest.yaml
+├── provider/
+│   └── my_provider.yaml   # Model provider definition
+├── models/
+│   └── llm/
+│       └── my_model.py    # Model implementation
+└── _assets/
+    └── icon.svg
+```
+
+## Plugin manifest
+
+The `manifest.yaml` declares everything Dify needs to know about your plugin:
+
+```yaml
+version: "0.1.0"
+author: your-username
+name: my-tool-plugin
+description:
+  en_US: "Describe what the plugin does in one sentence."
+label:
+  en_US: "My Tool Plugin"
+icon: icon.svg
+created_at: "2025-01-01T00:00:00Z"
+resource:
+  memory: 52428800  # 50 MB in bytes
+  permission:
+    tool:
+      enabled: true
+meta:
+  minimum_dify_version: "1.0.0"
+plugins:
+  tools:
+    - provider/my_tool.yaml
+```
+
+Key constraints:
+- `author` must match `^[a-zA-Z0-9_-]{1,64}$`
+- `name` must match `^[a-z0-9_-]{1,128}$`
+- `version` must be a valid semantic version string
+- `resource.memory` is capped between 1 KB and 1 GB
+
+## Creating a tool plugin
+
+### Define the tool provider
+
+Create `provider/my_tool.yaml`:
+
+```yaml
+identity:
+  author: your-username
+  name: my_tool
+  label:
+    en_US: "My Tool"
+  description:
+    en_US: "Provides the my_action tool."
+  icon: icon.svg
+credentials_schema: []
+tools:
+  - tools/my_tool.yaml
+```
+
+### Define the tool schema
+
+Create `tools/my_tool.yaml`. The schema uses an OpenAPI-like structure:
+
+```yaml
+identity:
+  name: my_action
+  author: your-username
+  label:
+    en_US: "My Action"
+description:
+  human:
+    en_US: "Performs my action given a query."
+  llm: "Use this tool to perform my action. Input: query (string)."
+parameters:
+  - name: query
+    type: string
+    required: true
+    label:
+      en_US: "Query"
+    human_description:
+      en_US: "The search query to use."
+    llm_description: "The query string."
+    form: llm
+```
+
+Supported parameter types: `string`, `number`, `boolean`, `select`, `file`, `files`, `secret-input`.
+
+`form` controls how the parameter is filled:
+- `llm` — the LLM provides the value at invocation time
+- `form` — the user fills this in the tool configuration UI
+
+### Implement the tool
+
+Create `tools/my_tool.py`:
+
+```python
+from collections.abc import Generator
+from dify_plugin import Tool
+from dify_plugin.entities.tool import ToolInvokeMessage
+
+
+class MyActionTool(Tool):
+    def _invoke(
+        self, tool_parameters: dict
+    ) -> Generator[ToolInvokeMessage, None, None]:
+        query = tool_parameters.get("query", "")
+        # Your implementation here
+        result = f"Result for: {query}"
+        yield self.create_text_message(result)
+```
+
+The `_invoke` method is a generator. Yield one or more `ToolInvokeMessage` objects:
+
+| Method | Output type |
+|---|---|
+| `self.create_text_message(text)` | Plain text |
+| `self.create_json_message(data)` | JSON object |
+| `self.create_blob_message(blob, meta)` | Binary data (images, audio, etc.) |
+| `self.create_variable_message(name, value)` | Named variable for use in workflows |
+
+## Creating a model provider plugin
+
+A model provider plugin must implement the provider interface and at least one model type.
+
+### Provider definition
+
+Create `provider/my_provider.yaml`:
+
+```yaml
+identity:
+  author: your-username
+  name: my_provider
+  label:
+    en_US: "My Provider"
+  description:
+    en_US: "Adds My Provider LLM support."
+  icon: icon.svg
+models:
+  - models/llm/my_model.yaml
+credentials_schema:
+  - name: api_key
+    type: secret-input
+    label:
+      en_US: "API Key"
+    required: true
+```
+
+### Model implementation
+
+Implement the model class in `models/llm/my_model.py` by subclassing the appropriate base class from `dify_plugin.model_runtime`. Refer to the [Dify plugin SDK documentation](https://github.com/langgenius/dify-plugin-sdks) for the full interface.
+
+## Testing plugins locally
+
+Dify supports a **remote debugging** mode that lets you run your plugin code locally while it connects to a running Dify instance.
+
+<Steps>
+  <Step title="Enable remote debug in Dify">
+    In your `.env` file (or environment), set:
+
+    ```bash
+    PLUGIN_DEBUGGING=true
+    ```
+
+    Restart the Dify API service.
+  </Step>
+
+  <Step title="Get the debug key">
+    In the Dify console, go to **Plugins → Debug**. Copy the debug key and the remote server address.
+  </Step>
+
+  <Step title="Start your plugin in debug mode">
+    Run your plugin with the remote address and key:
+
+    ```bash
+    python -m main --host <dify-host> --port 5003 --key <debug-key>
+    ```
+
+    Your plugin registers with Dify and its tools appear in the tool panel immediately.
+  </Step>
+
+  <Step title="Test in the Dify console">
+    Open an Agent or Workflow app, add your tool, and run a test. Logs and errors appear in your local terminal.
+  </Step>
+</Steps>
+
+## Building the package
+
+Once your plugin is working, package it:
+
+```bash
+dify-plugin package ./my-plugin
+```
+
+This produces `my-plugin.difypkg` — a zip archive containing your manifest, definitions, code, and assets.
+
+## Publishing to the marketplace
+
+<Steps>
+  <Step title="Prepare your repository">
+    Push your plugin source to a public GitHub repository. Include a `README.md` with usage instructions and a `CHANGELOG.md` with version history.
+  </Step>
+
+  <Step title="Create a GitHub release">
+    Tag your release (e.g., `v0.1.0`) and attach the `.difypkg` file as a release asset.
+  </Step>
+
+  <Step title="Submit to the marketplace">
+    Open a pull request to the [Dify plugins repository](https://github.com/langgenius/dify-plugins), following the contribution guidelines. The Dify team reviews the manifest and code before merging.
+  </Step>
+</Steps>
+
+<Note>
+  The marketplace review checks that the manifest accurately declares all permissions the plugin uses, that the plugin does not exfiltrate data outside its declared scope, and that the code follows Dify's contribution guidelines.
+</Note>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Installing plugins" icon="download" href="/plugins/install-plugin">
+    Install and manage plugins in your workspace.
+  </Card>
+  <Card title="Plugins overview" icon="book" href="/plugins/overview">
+    Review the full plugin type reference and permission model.
+  </Card>
+</CardGroup>

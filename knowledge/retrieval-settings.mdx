@@ -1,0 +1,183 @@
+---
+title: "Retrieval settings"
+description: "Configure how Dify searches your knowledge bases — retrieval method, top-K, score threshold, reranking, and multi-path retrieval."
+keywords: ["semantic search", "full-text search", "hybrid search", "reranking", "top-K", "RAG retrieval"]
+---
+
+When a user sends a message, Dify runs a retrieval pipeline against your knowledge bases to find relevant context. This page explains the available retrieval modes, ranking options, and how retrieved content is injected into the prompt.
+
+## Retrieval modes
+
+The `search_method` field in the retrieval model configuration controls which retrieval algorithm is used.
+
+<CardGroup cols={2}>
+  <Card title="Semantic search" icon="brain">
+    Converts the query to an embedding vector and finds chunks with the highest cosine similarity. Best for natural-language queries where the vocabulary may differ from the document text.
+
+    `search_method: "semantic_search"`
+  </Card>
+  <Card title="Full-text search" icon="magnifying-glass">
+    Tokenises the query and matches chunks using inverted-index term frequency. Best for exact-match lookups of product names, IDs, or keywords.
+
+    `search_method: "full_text_search"`
+  </Card>
+  <Card title="Hybrid search" icon="shuffle">
+    Runs semantic and full-text search in parallel and merges the results. Covers both conceptual similarity and keyword precision.
+
+    `search_method: "hybrid_search"`
+  </Card>
+  <Card title="Keyword search" icon="key">
+    Uses the Jieba keyword table. Available automatically for economy-indexed datasets, which do not have embeddings.
+
+    `search_method: "keyword_search"`
+  </Card>
+</CardGroup>
+
+<Note>
+Economy datasets always use keyword search regardless of the configured `search_method`. High-quality datasets support all four methods.
+</Note>
+
+## Top-K and score threshold
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `top_k` | `4` | Maximum number of chunks to retrieve and pass to the LLM. |
+| `score_threshold_enabled` | `false` | When `true`, chunks with a similarity score below `score_threshold` are discarded. |
+| `score_threshold` | `0.0` | Minimum similarity score (0.0–1.0) for a chunk to be included. |
+
+Raising `top_k` gives the model more context but increases token usage and may introduce noise. Use `score_threshold` to filter out low-relevance chunks when precision matters more than recall.
+
+## Reranking
+
+After initial retrieval, a reranking model can re-score the top-K chunks to improve ordering before they are injected into the prompt.
+
+### Rerank modes
+
+| Mode | `reranking_mode` value | Description |
+|------|----------------------|-------------|
+| **Reranking model** | `reranking_model` | Passes the query and each chunk to a dedicated cross-encoder reranking model. More accurate but requires a configured reranker. |
+| **Weighted score** | `weighted_score` | Merges semantic and keyword scores using configurable weights. No external reranking model needed. |
+
+### Using a reranking model
+
+Configure `reranking_enable: true` and specify the provider and model:
+
+```json
+{
+  "search_method": "hybrid_search",
+  "reranking_enable": true,
+  "reranking_mode": "reranking_model",
+  "reranking_model": {
+    "reranking_provider_name": "cohere",
+    "reranking_model_name": "rerank-english-v3.0"
+  },
+  "top_k": 10,
+  "score_threshold_enabled": false
+}
+```
+
+<Tip>
+Set `top_k` to a higher value (e.g. 10–20) when reranking is enabled. Retrieve broadly, then let the reranker surface the best chunks.
+</Tip>
+
+### Using weighted scores (hybrid search)
+
+When `reranking_mode` is `weighted_score`, configure the blend with the `weights` object:
+
+```json
+{
+  "search_method": "hybrid_search",
+  "reranking_enable": true,
+  "reranking_mode": "weighted_score",
+  "weights": {
+    "weight_type": "customized",
+    "vector_setting": {
+      "vector_weight": 0.7,
+      "embedding_provider_name": "openai",
+      "embedding_model_name": "text-embedding-3-small"
+    },
+    "keyword_setting": {
+      "keyword_weight": 0.3
+    }
+  },
+  "top_k": 8,
+  "score_threshold_enabled": false
+}
+```
+
+Pre-set `weight_type` values:
+- `semantic_first` — semantic score is weighted higher.
+- `keyword_first` — keyword score is weighted higher.
+- `customized` — use the explicit `vector_weight` and `keyword_weight` values.
+
+<Warning>
+When using `weighted_score` mode across multiple knowledge bases, all datasets must share the same embedding model and provider. If they differ, configure a `reranking_model` instead.
+</Warning>
+
+## Multi-path retrieval
+
+In workflows and apps that reference more than one knowledge base, Dify supports two retrieval strategies:
+
+| Strategy | Description |
+|----------|-------------|
+| **Multiple** (default) | Queries all configured knowledge bases in parallel, then merges and ranks the results. Each dataset is queried using its own configured retrieval method and top-K. |
+| **Single** | Uses a router LLM to select the single most relevant dataset from the list, then queries only that dataset. Requires an LLM model with tool-calling or ReAct support. |
+
+Single-path retrieval is useful when knowledge bases represent distinct domains and you want to avoid mixing context. Multiple-path retrieval gives broader coverage.
+
+## Metadata filtering
+
+You can narrow retrieval to specific documents by filtering on document metadata fields before the vector search runs.
+
+Three modes are available:
+
+| Mode | Description |
+|------|-------------|
+| `disabled` | No metadata filtering. All documents in the dataset are candidates. |
+| `automatic` | An LLM infers the appropriate metadata conditions from the user's query. |
+| `manual` | You specify explicit filter conditions (e.g. `year = 2024`, `rating > 9`). |
+
+Supported filter operators: `contains`, `not contains`, `start with`, `end with`, `is`, `is not`, `empty`, `not empty`, `=`, `≠`, `>`, `<`, `≥`, `≤`, `before`, `after`.
+
+## How retrieved context is injected into prompts
+
+After retrieval and optional reranking, Dify:
+
+1. Sorts the final chunks by descending score.
+2. Concatenates their text content with newlines.
+3. Injects the resulting string into the prompt at the position marked by the **Context** variable.
+
+For Q&A-indexed documents, the content is formatted as:
+
+```
+question:{segment question}
+answer:{segment answer}
+```
+
+For parent-child indexed documents, the summary (if present) is prepended before the segment content:
+
+```
+{summary}
+{segment content}
+```
+
+Each retrieved source is also recorded with metadata (dataset name, document name, segment ID, score, hit count) and surfaced in the citation panel when **Show retrieval source** is enabled in the app.
+
+## Full retrieval model configuration example
+
+```json
+{
+  "search_method": "hybrid_search",
+  "reranking_enable": true,
+  "reranking_mode": "reranking_model",
+  "reranking_model": {
+    "reranking_provider_name": "cohere",
+    "reranking_model_name": "rerank-english-v3.0"
+  },
+  "top_k": 10,
+  "score_threshold_enabled": true,
+  "score_threshold": 0.4
+}
+```
+
+This configuration retrieves up to 10 candidate chunks using hybrid search, reranks them with Cohere, and discards any chunk scoring below 0.4.

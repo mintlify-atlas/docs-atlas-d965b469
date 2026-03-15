@@ -1,0 +1,61 @@
+---
+title: "Introduction"
+description: "Dify is an open-source, production-ready LLM application development platform."
+---
+
+Dify is an open-source platform for developing LLM-powered applications. It combines an intuitive visual interface with production-grade infrastructure to help teams go from prototype to deployment without needing deep ML expertise.
+
+## Core capabilities
+
+<CardGroup cols={2}>
+  <Card title="Workflow Builder" icon="diagram-project" href="/concepts/workflows">
+    Design AI pipelines visually — connect LLMs, code blocks, tools, and knowledge bases with a drag-and-drop canvas.
+  </Card>
+  <Card title="RAG Pipeline" icon="database" href="/concepts/rag-pipeline">
+    Ingest any document format into a vector knowledge base and retrieve context automatically at inference time.
+  </Card>
+  <Card title="Agent Capabilities" icon="robot" href="/concepts/agents">
+    Build agents that reason and act using ReAct or Function Calling, with access to 50+ built-in tools.
+  </Card>
+  <Card title="Model Management" icon="microchip" href="/concepts/models">
+    Manage credentials for 100+ LLM providers in one place — switch models without changing application code.
+  </Card>
+  <Card title="LLMOps" icon="chart-bar" href="/llmops/logs-and-annotations">
+    Capture every request and response, annotate outputs for fine-tuning, and track performance over time.
+  </Card>
+  <Card title="REST API" icon="code" href="/api-reference/overview">
+    Every Dify feature is accessible via a versioned REST API, making it easy to integrate into any stack.
+  </Card>
+</CardGroup>
+
+## Architecture overview
+
+Dify has two main components:
+
+- **Backend API** (`api/`) — A Python Flask application implementing Domain-Driven Design. It handles LLM orchestration, RAG indexing, agent execution, workflow runs, and exposes REST endpoints for both the web UI and external integrations.
+- **Frontend** (`web/`) — A Next.js + TypeScript application providing the visual workflow builder, Prompt IDE, knowledge management UI, and the end-user chat interface.
+
+Both components are packaged as Docker images and orchestrated together via Docker Compose or Kubernetes.
+
+## Getting started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run Dify locally with Docker Compose in under 5 minutes.
+  </Card>
+  <Card title="Dify Cloud" icon="cloud" href="/getting-started/cloud">
+    Try Dify instantly with no infrastructure setup.
+  </Card>
+  <Card title="Self-Hosting" icon="server" href="/getting-started/self-hosting">
+    Deploy Dify in your own environment with full control.
+  </Card>
+  <Card title="API Reference" icon="terminal" href="/api-reference/overview">
+    Integrate Dify into your existing applications.
+  </Card>
+</CardGroup>
+
+## Community
+
+- [GitHub](https://github.com/langgenius/dify) — Source code, issues, and feature requests
+- [Discord](https://discord.gg/FngNHpbcY7) — Chat with the community
+- [Discussions](https://github.com/langgenius/dify/discussions) — Share feedback and ask questions

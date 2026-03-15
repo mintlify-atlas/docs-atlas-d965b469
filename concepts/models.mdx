@@ -1,0 +1,105 @@
+---
+title: "Models"
+description: "How Dify manages model providers, credentials, and the six model types used across the platform."
+keywords: ["models", "LLM", "text embedding", "reranking", "TTS", "speech to text", "model provider"]
+---
+
+Dify abstracts every AI model behind a unified `ModelInstance` interface (`api/core/model_manager.py`). Operators configure provider credentials once, and every feature — workflows, agents, RAG, moderation — resolves the appropriate model at runtime without hardcoded provider logic.
+
+## Model types
+
+Six model types are defined in `ModelType` (`api/dify_graph/model_runtime/entities/model_entities.py`):
+
+<CardGroup cols={2}>
+  <Card title="LLM" icon="comments">
+    Large language models used for text generation, chat, and reasoning. The primary model type consumed by the LLM node, agent runner, Question Classifier, and Parameter Extractor.
+  </Card>
+  <Card title="Text Embedding" icon="vector-square">
+    Encodes text into dense vectors for knowledge-base indexing and semantic search. Required for `high_quality` RAG knowledge bases.
+  </Card>
+  <Card title="Rerank" icon="arrow-down-wide-short">
+    Rescores retrieved document chunks by relevance to a query. Used in the post-processing stage of hybrid and semantic RAG retrieval.
+  </Card>
+  <Card title="Speech to Text" icon="microphone">
+    Transcribes audio input to text. Enables voice-input features in chat applications.
+  </Card>
+  <Card title="Text to Speech (TTS)" icon="volume-high">
+    Synthesises speech from text. Enables voice-output features in chat applications.
+  </Card>
+  <Card title="Moderation" icon="shield">
+    Classifies content for policy violations. Used in the input/output moderation feature to block harmful content before it reaches the LLM or the user.
+  </Card>
+</CardGroup>
+
+## Provider model management
+
+The model manager resolves credentials through two objects:
+
+- **`ModelManager`** — top-level service that looks up tenant-scoped provider configurations, validates credentials, and creates `ModelInstance` objects.
+- **`ProviderManager`** — manages the provider configuration store, including system-level keys and per-tenant overrides.
+
+Provider credentials are stored encrypted in the database. Each provider and model combination is verified for status before use:
+
+```python
+# api/core/workflow/node_factory.py
+provider_model.raise_for_status()   # raises if the model is disabled or quota-exceeded
+```
+
+### Credential lookup in a workflow
+
+When an LLM node executes, `DifyNodeFactory` calls `build_dify_model_access` to produce:
+1. A **credentials provider** that fetches the encrypted API key for a given `(provider, model)` pair.
+2. A **model factory** that initialises the `ModelInstance` with those credentials.
+
+The resolved `ModelInstance` carries `provider`, `model_name`, `credentials`, `parameters`, and `stop` sequences — everything needed to make the API call.
+
+## Model parameters
+
+Model parameters are stored in the `completion_params` dict on the `LLMNodeData` entity. Common parameters include:
+
+| Parameter | Description |
+|---|---|
+| `temperature` | Controls output randomness (0–2 for most providers) |
+| `top_p` | Nucleus sampling cutoff |
+| `max_tokens` | Maximum number of tokens to generate |
+| `stop` | One or more stop sequences |
+| `presence_penalty` | Penalises repeated topics |
+| `frequency_penalty` | Penalises repeated tokens |
+
+Parameters are validated against the model schema returned by `model_type_instance.get_model_schema()`, so only parameters supported by the selected model are applied.
+
+## Using multiple models in a workflow
+
+Workflows are not limited to a single model. Each LLM-type node (LLM, Question Classifier, Parameter Extractor, Agent) independently selects its provider and model. A typical pattern:
+
+<Steps>
+  <Step title="Fast model for classification">
+    Use a low-latency, low-cost model (e.g., GPT-4o mini) in a Question Classifier node to route the query.
+  </Step>
+  <Step title="Capable model for generation">
+    Route the query to an LLM node configured with a more capable model (e.g., Claude 3.7 Sonnet) for the final response.
+  </Step>
+  <Step title="Embedding model for retrieval">
+    A Knowledge Retrieval node uses whichever text-embedding model was selected when the knowledge base was created — independently of the LLM chosen for generation.
+  </Step>
+  <Step title="Rerank model for precision">
+    A rerank model refines the retrieved chunks before they are injected into the generation prompt.
+  </Step>
+</Steps>
+
+<Tip>
+Model credentials are scoped to a workspace (tenant). All apps within the same workspace share the same provider configurations. Switching a provider's API key in **Settings → Model Providers** takes effect immediately for all apps.
+</Tip>
+
+## Model features
+
+The `ModelFeature` enum describes optional capabilities an LLM may expose:
+
+| Feature | Description |
+|---|---|
+| `TOOL_CALL` | Native function-calling / tool-use API |
+| `VISION` | Accepts image inputs in the prompt |
+| `STREAM_TOOL_CALL` | Streams function-call deltas |
+| `MULTI_MODAL` | General multi-modal support |
+
+The agent runner checks `ModelFeature.TOOL_CALL` before using the Function Calling strategy; if absent it falls back to Chain of Thought.

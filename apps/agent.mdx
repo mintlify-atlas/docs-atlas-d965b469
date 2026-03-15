@@ -1,0 +1,143 @@
+---
+title: "Building an AI agent"
+description: "Create agents that can reason over tasks and call external tools using Dify's Agent Chat app type."
+keywords: ["agent", "agent chat", "ReAct", "function calling", "tools", "planning strategy"]
+---
+
+A Dify agent is a chatbot that can decide to call external tools before composing a reply. The underlying LLM uses a planning strategy — either **ReAct** (reasoning + acting) or **Function Calling** — to determine which tools to invoke and in what order.
+
+Agent apps use the `agent-chat` mode internally. When you enable agent mode in a Chat app and choose a supported strategy, Dify automatically upgrades the app mode to `agent-chat`.
+
+## Agent strategies
+
+Dify supports four planning strategies, defined in `PlanningStrategy`:
+
+| Strategy | Description |
+|---|---|
+| `router` | The LLM selects the single most relevant tool and calls it once. Lightweight and fast. |
+| `react_router` | Combines ReAct reasoning with tool routing. The LLM reasons step by step, then routes to one tool. |
+| `react` | Full ReAct loop. The LLM reasons, acts (calls a tool), observes the result, and repeats until it reaches an answer. |
+| `function_call` | Uses the model's native function-calling interface (supported by OpenAI, Anthropic, and others). Faster than ReAct on capable models. |
+
+<Note>
+  Not all models support function calling. If your chosen model does not expose a function-call API, Dify falls back to ReAct automatically.
+</Note>
+
+## Create an agent
+
+<Steps>
+  <Step title="Create a Chatbot app">
+    From **Studio**, click **Create App** and select **Chatbot**. Name the app and click **Create**.
+  </Step>
+
+  <Step title="Enable agent mode">
+    In the Prompt IDE, click **Agent Setting** (the robot icon in the top bar of the configuration panel). Toggle **Agent Mode** on.
+  </Step>
+
+  <Step title="Select a planning strategy">
+    Choose your preferred strategy from the **Strategy** dropdown:
+
+    - Use **Function Calling** with GPT-4o, Claude 3.5, or other function-call-capable models for the best performance.
+    - Use **ReAct** when your model does not support function calling, or when you want visible reasoning traces.
+  </Step>
+
+  <Step title="Add tools">
+    Click **Add Tool** to open the tool picker. Dify organizes tools into:
+
+    <CardGroup cols={2}>
+      <Card title="Built-in tools" icon="toolbox">
+        Packaged tools available immediately: web search, Wikipedia, weather, Wolfram Alpha, code interpreter, image generation, and more.
+      </Card>
+      <Card title="Custom API tools" icon="plug">
+        Tools you define by importing an OpenAPI spec or configuring a custom HTTP endpoint in **Tools → Custom Tools**.
+      </Card>
+    </CardGroup>
+
+    Each tool entry requires:
+    - `provider_type` — `built-in` or `api`
+    - `provider_id` — the tool provider's identifier
+    - `tool_name` — name of the specific tool
+    - `tool_parameters` — default parameter values
+  </Step>
+
+  <Step title="Write system instructions">
+    In the **System Prompt** field, describe the agent's role and how it should use its tools. Be explicit about when the agent should call a tool versus answer from its own knowledge.
+
+    Example:
+
+    ```text
+    You are a research assistant. When answering factual questions about current events,
+    always use the web_search tool to find up-to-date information before responding.
+    For math problems, use the wolfram_alpha tool.
+    ```
+  </Step>
+
+  <Step title="Test in the debug panel">
+    Open **Debug and Preview**. Send a message that should trigger tool use. The debug panel shows each tool call, its input arguments, and the raw output before the LLM composes its final reply.
+
+    <Tip>
+      Watch the reasoning trace in the debug panel to verify the agent is choosing tools correctly. Adjust your system prompt if the agent calls tools unnecessarily or misses obvious opportunities.
+    </Tip>
+  </Step>
+
+  <Step title="Publish">
+    Click **Publish**. The agent is available as a web app, iframe embed, or via the `POST /v1/chat-messages` API endpoint — identical to a standard chatbot.
+  </Step>
+</Steps>
+
+## Agent chat vs. regular chat
+
+| Feature | Chat (`chat`) | Agent Chat (`agent-chat`) |
+|---|---|---|
+| Multi-turn conversation | Yes | Yes |
+| System prompt | Yes | Yes |
+| Knowledge base retrieval | Yes | Yes |
+| Tool invocation | No | Yes |
+| Reasoning traces | No | Yes (visible in debug panel) |
+| Function calling support | No | Yes |
+| Iterative tool loops | No | Yes (ReAct) |
+
+Both modes share the same API endpoint (`POST /v1/chat-messages`) and conversation management model. The difference is entirely in what happens inside the LLM call.
+
+## Tool configuration reference
+
+Each tool in `agent_mode.tools` follows this shape:
+
+```json
+{
+  "provider_type": "built-in",
+  "provider_id": "google",
+  "tool_name": "google_search",
+  "tool_parameters": {
+    "result_type": "link"
+  },
+  "enabled": true
+}
+```
+
+For custom API tools:
+
+```json
+{
+  "provider_type": "api",
+  "provider_id": "YOUR_CUSTOM_TOOL_UUID",
+  "tool_name": "lookup_order",
+  "tool_parameters": {},
+  "enabled": true
+}
+```
+
+<Warning>
+  If a built-in tool's plugin is uninstalled or a custom API tool is deleted, the tool appears as "deleted" in the agent configuration and the agent cannot call it. Re-add or replace the tool before republishing.
+</Warning>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Building a workflow" icon="diagram-project" href="/apps/workflow">
+    Chain multiple LLM calls and tools into a deterministic pipeline.
+  </Card>
+  <Card title="Prompt IDE" icon="code" href="/apps/prompt-ide">
+    Debug and iterate on your agent's system prompt.
+  </Card>
+</CardGroup>

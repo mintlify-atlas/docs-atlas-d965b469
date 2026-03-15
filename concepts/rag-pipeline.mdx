@@ -1,0 +1,138 @@
+---
+title: "RAG pipeline"
+description: "How Dify ingests documents into a knowledge base and retrieves relevant context at inference time."
+keywords: ["RAG", "retrieval", "knowledge base", "embedding", "chunking", "semantic search", "hybrid search"]
+---
+
+Retrieval-Augmented Generation (RAG) lets an LLM answer questions grounded in your own documents rather than relying solely on its training data. Dify's RAG pipeline (`api/core/rag/`) handles the complete lifecycle: ingesting source documents, transforming them into searchable chunks, and retrieving the most relevant context at query time.
+
+## Pipeline overview
+
+<Steps>
+  <Step title="Extraction">
+    Raw source content is extracted into plain text. Dify ships extractors for the formats listed below. The `extract_processor.py` selects the correct extractor based on file MIME type or datasource type.
+  </Step>
+  <Step title="Cleaning">
+    The extracted text passes through configurable cleaning rules (`api/core/rag/cleaner/`) that remove boilerplate, normalise whitespace, and optionally filter segments below a minimum character threshold.
+  </Step>
+  <Step title="Chunking (splitting)">
+    The cleaned text is split into overlapping chunks by `TextSplitter` (`api/core/rag/splitter/text_splitter.py`). Default chunk size is 4,000 characters with 200-character overlap; both values are configurable per knowledge base.
+  </Step>
+  <Step title="Embedding">
+    Each chunk is encoded into a dense vector by the knowledge base's designated text-embedding model. The resulting vectors are stored alongside the original text for retrieval.
+  </Step>
+  <Step title="Indexing">
+    Chunks and their vectors are written to the configured vector store. Dify supports three index structure types (defined in `api/core/rag/index_processor/constant/index_type.py`):
+    - **Paragraph index** (`text_model`) — each chunk is a flat segment
+    - **Q&A index** (`qa_model`) — an LLM generates question-answer pairs from each chunk
+    - **Parent-child index** (`hierarchical_model`) — large parent chunks are stored with smaller child chunks for precision-recall balance
+  </Step>
+  <Step title="Retrieval">
+    At inference time the query is embedded and used to search the index. Retrieved chunks are optionally reranked before being injected into the LLM prompt as context.
+  </Step>
+</Steps>
+
+## Supported document formats
+
+The extractor layer (`api/core/rag/extractor/`) includes dedicated parsers for:
+
+<CardGroup cols={3}>
+  <Card title="PDF" icon="file-pdf">
+    `pdf_extractor.py` — extracts text and layout from PDF files.
+  </Card>
+  <Card title="Word (DOCX)" icon="file-word">
+    `word_extractor.py` — parses Microsoft Word documents.
+  </Card>
+  <Card title="Excel / CSV" icon="file-excel">
+    `excel_extractor.py` and `csv_extractor.py` — tabular data converted to structured text.
+  </Card>
+  <Card title="HTML" icon="file-code">
+    `html_extractor.py` — strips tags and extracts readable content.
+  </Card>
+  <Card title="Markdown" icon="file">
+    `markdown_extractor.py` — preserves heading hierarchy during extraction.
+  </Card>
+  <Card title="Plain text" icon="file-lines">
+    `text_extractor.py` — reads `.txt` and similar plain-text files directly.
+  </Card>
+  <Card title="Notion" icon="n">
+    `notion_extractor.py` — syncs pages and databases from a connected Notion workspace.
+  </Card>
+  <Card title="Web pages" icon="globe">
+    `jina_reader_extractor.py` — crawls URLs via Jina Reader; also supports Firecrawl and Watercrawl providers.
+  </Card>
+  <Card title="Unstructured (any format)" icon="file-zipper">
+    Files can be routed through the Unstructured API for extraction when a native parser is unavailable.
+  </Card>
+</CardGroup>
+
+<Note>
+Datasources for Notion and websites are configured via the **Datasource** settings page. File uploads are handled by the `UploadFile` model and stored in the configured object storage backend.
+</Note>
+
+## Index technique
+
+Each knowledge base is created with one of two index techniques (`IndexTechniqueType`):
+
+| Technique | Description |
+|---|---|
+| `economy` | Uses keyword-based full-text search only; no embedding model required. Lower cost, lower recall quality. |
+| `high_quality` | Embeds every chunk with a text-embedding model. Enables semantic and hybrid retrieval. |
+
+## Retrieval strategies
+
+Four retrieval methods are defined in `api/core/rag/retrieval/retrieval_methods.py`:
+
+<Tabs>
+  <Tab title="Semantic search">
+    Embeds the query and performs approximate nearest-neighbour search over the vector index. Best for conceptual questions where wording differs from the source text.
+
+    ```python
+    RetrievalMethod.SEMANTIC_SEARCH
+    ```
+  </Tab>
+  <Tab title="Full-text search">
+    Inverts a keyword index (powered by Jieba for Chinese text and BM25-style scoring for other languages) and retrieves chunks containing the query terms.
+
+    ```python
+    RetrievalMethod.FULL_TEXT_SEARCH
+    ```
+  </Tab>
+  <Tab title="Hybrid search">
+    Executes both semantic and full-text retrieval in parallel, then fuses the result sets. A reranking model can be applied to the merged list for a final relevance score.
+
+    ```python
+    RetrievalMethod.HYBRID_SEARCH
+    ```
+  </Tab>
+  <Tab title="Keyword search">
+    Lightweight extraction of keywords from the query matched against an inverted index. Fastest option; suitable for structured content with predictable terminology.
+
+    ```python
+    RetrievalMethod.KEYWORD_SEARCH
+    ```
+  </Tab>
+</Tabs>
+
+### Multi-dataset routing
+
+When multiple knowledge bases are attached to an application, Dify routes the query to the most relevant datasets using either a **Function Call router** or a **ReAct router** (`api/core/rag/retrieval/router/`). The router uses an LLM to decide which knowledge bases to query before executing retrieval.
+
+### Reranking
+
+A rerank model (configured as `ModelType.RERANK`) rescores retrieved chunks for relevance before they are passed to the LLM. Reranking is available in hybrid and semantic retrieval modes.
+
+## Metadata filtering
+
+Each document segment can carry typed metadata fields. At retrieval time, callers can supply filter conditions (`MetadataFilteringCondition`) to narrow the candidate pool before vector search — for example, filtering by `document_type`, `created_date`, or custom tags.
+
+## Connecting knowledge bases to workflows and agents
+
+<CardGroup cols={2}>
+  <Card title="Knowledge Retrieval node" icon="diagram-project" href="/concepts/workflows">
+    Add a Knowledge Retrieval node to any workflow. Configure which knowledge base(s) to query, the retrieval method, and top-K. The node outputs a `context` variable containing ranked chunks.
+  </Card>
+  <Card title="Agent tools" icon="robot" href="/concepts/agents">
+    An agent automatically queries attached knowledge bases as tools during its reasoning loop, choosing when to retrieve context based on the user's query.
+  </Card>
+</CardGroup>

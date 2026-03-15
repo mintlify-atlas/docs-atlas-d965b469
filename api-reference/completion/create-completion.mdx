@@ -1,0 +1,149 @@
+---
+title: "Create Completion"
+description: "POST /completion-messages — Generate a single-turn text completion."
+---
+
+<Note>
+  This endpoint is only available for **Completion** app types.
+</Note>
+
+## Endpoint
+
+```
+POST /completion-messages
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="inputs" type="object" required>
+  Key-value pairs for variables defined in the app's prompt template. Pass `{}` if none are defined.
+</ParamField>
+
+<ParamField body="user" type="string" required>
+  A unique identifier for the end-user.
+</ParamField>
+
+<ParamField body="query" type="string">
+  The text prompt to complete. Some completion apps embed the query via `{{query}}` in their prompt template.
+</ParamField>
+
+<ParamField body="response_mode" type="string">
+  How the response is delivered.
+
+  - `"blocking"` (default) — waits for the complete response.
+  - `"streaming"` — returns a Server-Sent Events stream.
+</ParamField>
+
+<ParamField body="files" type="array">
+  Files to attach to the completion request (e.g. images for vision models).
+
+  <Expandable title="File object">
+    <ParamField body="type" type="string" required>
+      File type. One of: `"image"`, `"document"`, `"audio"`, `"video"`, `"custom"`.
+    </ParamField>
+    <ParamField body="transfer_method" type="string" required>
+      `"remote_url"` or `"local_file"`.
+    </ParamField>
+    <ParamField body="url" type="string">
+      Publicly accessible URL. Required when `transfer_method` is `"remote_url"`.
+    </ParamField>
+    <ParamField body="upload_file_id" type="string">
+      ID from the [Upload File](/api-reference/files/upload-file) endpoint. Required when `transfer_method` is `"local_file"`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response
+
+### Blocking mode
+
+<ResponseField name="message_id" type="string">
+  Unique message ID.
+</ResponseField>
+
+<ResponseField name="mode" type="string">
+  App mode. Always `"completion"` for this endpoint.
+</ResponseField>
+
+<ResponseField name="answer" type="string">
+  The completed text.
+</ResponseField>
+
+<ResponseField name="metadata" type="object">
+  <Expandable title="Metadata fields">
+    <ResponseField name="usage" type="object">
+      Token usage.
+      <Expandable title="Usage fields">
+        <ResponseField name="prompt_tokens" type="integer" />
+        <ResponseField name="completion_tokens" type="integer" />
+        <ResponseField name="total_tokens" type="integer" />
+        <ResponseField name="total_price" type="string" />
+        <ResponseField name="currency" type="string" />
+        <ResponseField name="latency" type="number" />
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="retriever_resources" type="array">
+      Knowledge base segments referenced during generation.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp.
+</ResponseField>
+
+### Streaming mode
+
+SSE events follow the same format as [Chat streaming events](/api-reference/chat/send-message#streaming-mode-response_mode-streaming), with event types `message`, `message_end`, and `error`.
+
+## Error Codes
+
+| HTTP Status | Code | Description |
+|---|---|---|
+| `400` | `app_unavailable` | App is not properly configured |
+| `401` | `unauthorized` | Invalid or missing API key |
+| `500` | `provider_not_initialize` | LLM provider credentials not configured |
+| `500` | `provider_quota_exceeded` | LLM provider quota exhausted |
+| `500` | `model_currently_not_support` | Selected model unavailable |
+| `500` | `completion_request_error` | LLM provider returned an error |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/completion-messages' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "inputs": {"topic": "large language models"},
+    "query": "Write a short introduction.",
+    "response_mode": "blocking",
+    "user": "user-123"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.dify.ai/v1/completion-messages",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={
+        "inputs": {"topic": "large language models"},
+        "query": "Write a short introduction.",
+        "response_mode": "blocking",
+        "user": "user-123",
+    },
+)
+print(response.json())
+```
+</CodeGroup>

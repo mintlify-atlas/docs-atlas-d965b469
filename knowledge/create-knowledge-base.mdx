@@ -1,0 +1,151 @@
+---
+title: "Creating a knowledge base"
+description: "Set up a Dify knowledge base (dataset), configure indexing, connect it to an app or workflow, and manage it via the API."
+keywords: ["knowledge base", "dataset", "RAG", "vector store", "indexing"]
+---
+
+A **knowledge base** (called a *dataset* internally) is a collection of documents that Dify indexes into a vector store and retrieves at inference time to provide grounded context to your LLM. You can connect one or more knowledge bases to a chatbot, agent, or workflow node.
+
+## Indexing techniques
+
+When you create a knowledge base you choose one of two indexing techniques. This choice determines which retrieval methods are available and whether an embedding model is required.
+
+| Technique | Internal value | Description |
+|-----------|---------------|-------------|
+| **High quality** | `high_quality` | Chunks are embedded with a text-embedding model and stored in a vector database. Supports semantic search, full-text search, and hybrid search. |
+| **Economy** | `economy` | Uses keyword-based indexing only (Jieba). No embedding model required. Lower cost but only supports keyword search. |
+
+<Note>
+You cannot change the indexing technique after a knowledge base is created. Create a new knowledge base if you need to switch.
+</Note>
+
+## Create a knowledge base
+
+<Steps>
+  <Step title="Open the Knowledge section">
+    In the Dify navigation sidebar, click **Knowledge**. Then click **Create knowledge base**.
+  </Step>
+  <Step title="Name and describe the knowledge base">
+    Enter a name (1–40 characters) and an optional description (up to 400 characters). The description is used by the single-retrieval router as a hint when deciding which dataset to query — a clear description improves routing accuracy.
+  </Step>
+  <Step title="Choose an indexing technique">
+    Select **High quality** or **Economy**.
+
+    If you select **High quality**, also choose:
+    - **Embedding model provider** — for example, `openai`, `cohere`, or a locally hosted provider via Ollama.
+    - **Embedding model** — for example, `text-embedding-3-small`.
+
+    <Tip>
+    The embedding model you pick here is locked to all documents in this knowledge base. Choose before adding documents.
+    </Tip>
+  </Step>
+  <Step title="Set permissions">
+    Choose who can access the knowledge base:
+    - **Only me** (`only_me`) — private to your account.
+    - **All team members** (`all_team_members`) — visible to everyone in the workspace.
+    - **Partial members** (`partial_members`) — visible to a specific list of users.
+  </Step>
+  <Step title="Add documents (optional)">
+    You can add documents immediately after creation or later. See [Document ingestion](/knowledge/document-ingestion) for the full upload workflow.
+  </Step>
+</Steps>
+
+## Document structure types
+
+Each document added to a knowledge base is stored in one of three index structure types (set via the `doc_form` field).
+
+<AccordionGroup>
+  <Accordion title="Paragraph index (text_model)">
+    The default. Each chunk is indexed and retrieved independently. Works well for most documents. Ideal when retrieved chunks are self-contained paragraphs.
+  </Accordion>
+  <Accordion title="Q&A index (qa_model)">
+    Optimised for FAQ-style content. Each segment stores a question and an answer pair. At retrieval time, the query is matched against the question, and the answer is returned as context.
+  </Accordion>
+  <Accordion title="Parent-child index (hierarchical_model)">
+    Each document is split into large parent chunks and small child chunks. Retrieval runs against the small child chunks for precision, but the parent chunk (or the full document) is returned as context for completeness.
+
+    Set `parent_mode` to `paragraph` (return the parent paragraph) or `full-doc` (return the entire document).
+  </Accordion>
+</AccordionGroup>
+
+## Connect a knowledge base to an app
+
+### Chatbot or agent
+
+1. Open the app in the **Studio**.
+2. In the right sidebar, scroll to **Context** and click **+**.
+3. Select one or more knowledge bases from the list.
+4. Configure retrieval settings (top-K, score threshold, search method). See [Retrieval settings](/knowledge/retrieval-settings).
+
+### Workflow
+
+Drag a **Knowledge retrieval** node onto the canvas. In the node settings, add the knowledge bases you want to query and configure the retrieval parameters.
+
+## API access
+
+All knowledge base operations are available via the Dataset Service API. Authenticate with a dataset API key generated from **Settings → API keys**.
+
+### Create a dataset
+
+```bash
+curl -X POST https://api.dify.ai/v1/datasets \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Product documentation",
+    "description": "Answers questions about product features and pricing.",
+    "indexing_technique": "high_quality",
+    "permission": "only_me",
+    "embedding_model_provider": "openai",
+    "embedding_model": "text-embedding-3-small"
+  }'
+```
+
+### List datasets
+
+```bash
+curl "https://api.dify.ai/v1/datasets?page=1&limit=20" \
+  -H "Authorization: Bearer {api_key}"
+```
+
+### Get a single dataset
+
+```bash
+curl "https://api.dify.ai/v1/datasets/{dataset_id}" \
+  -H "Authorization: Bearer {api_key}"
+```
+
+### Update a dataset
+
+```bash
+curl -X PATCH "https://api.dify.ai/v1/datasets/{dataset_id}" \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated description.",
+    "permission": "all_team_members"
+  }'
+```
+
+### Delete a dataset
+
+```bash
+curl -X DELETE "https://api.dify.ai/v1/datasets/{dataset_id}" \
+  -H "Authorization: Bearer {api_key}"
+```
+
+<Note>
+Deleting a dataset also removes all indexed documents and their vector embeddings. This action cannot be undone.
+</Note>
+
+## Dataset payload reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Dataset name, 1–40 characters. |
+| `description` | string | No | Description shown to the routing LLM, up to 400 characters. |
+| `indexing_technique` | string | No | `high_quality` or `economy`. |
+| `permission` | string | No | `only_me`, `all_team_members`, or `partial_members`. Defaults to `only_me`. |
+| `embedding_model` | string | No | Required when `indexing_technique` is `high_quality`. |
+| `embedding_model_provider` | string | No | Required when `embedding_model` is set. |
+| `retrieval_model` | object | No | Default retrieval settings applied to all queries on this dataset. |

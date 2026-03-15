@@ -1,0 +1,128 @@
+---
+title: "Logs & Annotations"
+description: "View every request and response your app produces, and annotate outputs to improve future behavior."
+---
+
+Dify automatically records every request sent to your app and the response returned by the model. These logs are stored in the database and are accessible from the console without any extra configuration.
+
+## Viewing logs
+
+Open your app in the Dify console, then navigate to **Monitoring → Logs**. Each row in the table represents a single message exchange and shows:
+
+| Column | Description |
+|---|---|
+| **Time** | When the request arrived |
+| **Input** | The user's message or workflow input |
+| **Output** | The model's response |
+| **Model** | The model provider and model ID used |
+| **Tokens** | Prompt tokens + completion tokens consumed |
+| **Latency** | Provider response time in seconds |
+| **Cost** | Estimated cost in USD based on token usage |
+| **Status** | `normal`, `error`, or `stopped` |
+
+## Log detail view
+
+Click any row to open the full detail panel. The detail view shows:
+
+- **Full inputs and outputs** — The exact payload sent to the provider and the raw response received
+- **System prompt** — The prompt template as it was rendered for this specific request
+- **Model parameters** — Temperature, max tokens, and any other parameters in effect
+- **Metadata** — Conversation ID, message ID, the source of the request (`api`, `web-app`, or `explore`), and whether the message came from an agent workflow
+- **Streaming metrics** — For streaming responses: time to first token and total generation time
+- **File attachments** — Any files that were part of the request
+
+For **workflow** app types, the detail view includes a full trace of each node in the workflow run — inputs and outputs per node, elapsed time per node, and the overall run status.
+
+## Filtering and searching logs
+
+Use the filter bar above the log table to narrow results:
+
+- **Date range** — Select a start and end date to limit the window
+- **Keyword search** — Search across input and output text
+- **Status filter** — Show only errors, only successful responses, or all
+
+<Tip>
+  Filtering by `error` status is the fastest way to find requests that failed due to model errors, rate limits, or content policy violations.
+</Tip>
+
+## Annotating responses
+
+Annotations let you attach a canonical answer to a specific question. When annotation-based reply is enabled, Dify uses semantic similarity to match incoming questions to your annotations and returns the annotated answer directly — bypassing the model for those queries.
+
+This is useful for:
+- Ensuring consistent answers to frequently-asked questions
+- Correcting known-bad model outputs
+- Building a curated few-shot pool that improves over time
+
+### Creating an annotation from a log entry
+
+<Steps>
+  <Step title="Open the log detail">
+    Click a log row to open its detail panel.
+  </Step>
+
+  <Step title="Click 'Annotate'">
+    In the detail panel, click the **Annotate** button. This opens an editing form pre-populated with the original question and the model's answer.
+  </Step>
+
+  <Step title="Edit the answer">
+    Replace or refine the answer with the response you want this question to receive in the future. You can also edit the question text if you want to broaden or narrow what it matches.
+  </Step>
+
+  <Step title="Save the annotation">
+    Click **Save**. The annotation is indexed in the vector store and is immediately available for matching.
+  </Step>
+</Steps>
+
+### Creating annotations in bulk
+
+You can also create annotations outside the log view:
+
+1. Go to **Monitoring → Annotations**
+2. Click **Add Annotation** to create a new question–answer pair from scratch
+3. Or click **Import** to upload a CSV file with `question` and `answer` columns
+
+<Note>
+  Batch CSV import runs as a background job. Large imports (thousands of rows) may take a minute or two to complete indexing.
+</Note>
+
+## Enabling annotation-based reply
+
+Annotations only affect inference when the annotation reply feature is turned on.
+
+<Steps>
+  <Step title="Go to Monitoring → Annotations">
+    Open the Annotations tab for your app.
+  </Step>
+
+  <Step title="Enable annotation reply">
+    Toggle **Annotation Reply** to on. You will be prompted to choose:
+    - An **embedding model** — used to encode questions for similarity search
+    - A **score threshold** — the minimum cosine similarity required to trigger an annotation match (0.0–1.0; a value around 0.9 is a reasonable starting point)
+  </Step>
+
+  <Step title="Save">
+    Confirm your choices. Existing annotations are indexed immediately.
+  </Step>
+</Steps>
+
+When a user question exceeds the score threshold against an annotation, Dify returns the annotation answer without calling the model. The **Annotation Hit History** tab shows which annotations have been matched and how many times.
+
+<Warning>
+  Annotation reply is only available for **Chatbot** and **Agent** app types. Workflow apps do not support annotation matching.
+</Warning>
+
+## Thumbs-up / thumbs-down feedback
+
+End users can rate responses using the 👍 / 👎 controls in the Dify-hosted web app. Feedback is recorded and visible in the log list as a feedback indicator. The **Monitoring → Overview** screen aggregates feedback into a **user satisfaction rate** metric.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Monitoring & Metrics" icon="chart-line" href="/llmops/monitoring">
+    Track request volume, token costs, and latency trends over time.
+  </Card>
+  <Card title="Tracing Integrations" icon="route" href="/llmops/tracing-integrations">
+    Export detailed call traces to Langfuse, LangSmith, Opik, and more.
+  </Card>
+</CardGroup>

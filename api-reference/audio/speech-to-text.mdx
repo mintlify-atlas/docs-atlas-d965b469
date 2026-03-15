@@ -1,0 +1,86 @@
+---
+title: "Speech to Text"
+description: "POST /audio-to-text — Transcribe an audio file to text using ASR."
+---
+
+## Endpoint
+
+```
+POST /audio-to-text
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `multipart/form-data` |
+
+### Form Fields
+
+<ParamField body="file" type="file" required>
+  The audio file to transcribe. Must be provided as a multipart form upload with field name `file`.
+</ParamField>
+
+<ParamField body="user" type="string">
+  The end-user identifier. Provided as a form field.
+</ParamField>
+
+### Supported Audio Formats
+
+Accepted formats depend on the ASR provider configured in the app. Common formats include:
+
+`mp3`, `mp4`, `mpeg`, `mpga`, `m4a`, `wav`, `webm`, `amr`
+
+## Response
+
+<ResponseField name="text" type="string">
+  The transcribed text from the audio file.
+</ResponseField>
+
+```json
+{
+  "text": "Hello, this is a transcription of my audio file."
+}
+```
+
+## Error Codes
+
+| HTTP Status | Code | Description |
+|---|---|---|
+| `400` | `no_audio_uploaded` | No audio file was included in the request |
+| `400` | `app_unavailable` | App configuration is broken |
+| `401` | `unauthorized` | Invalid or missing API key |
+| `413` | `audio_too_large` | Audio file exceeds the size limit |
+| `415` | `unsupported_audio_type` | Audio format is not supported |
+| `500` | `provider_not_support_speech_to_text` | The configured provider does not support ASR |
+| `500` | `provider_not_initialize` | ASR provider credentials not configured |
+| `500` | `provider_quota_exceeded` | ASR provider quota exhausted |
+| `500` | `model_currently_not_support` | Selected ASR model unavailable |
+| `500` | `completion_request_error` | ASR provider returned an error |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/audio-to-text' \
+  -H 'Authorization: Bearer {api_key}' \
+  -F 'file=@/path/to/recording.mp3' \
+  -F 'user=user-123'
+```
+
+```python Python
+import requests
+
+with open("/path/to/recording.mp3", "rb") as f:
+    response = requests.post(
+        "https://api.dify.ai/v1/audio-to-text",
+        headers={"Authorization": "Bearer {api_key}"},
+        files={"file": ("recording.mp3", f, "audio/mpeg")},
+        data={"user": "user-123"},
+    )
+print(response.json())
+```
+</CodeGroup>

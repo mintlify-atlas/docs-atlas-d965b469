@@ -1,0 +1,114 @@
+---
+title: "Get Messages"
+description: "GET /messages — Retrieve messages in a conversation with cursor-based pagination."
+---
+
+## Endpoint
+
+```
+GET /messages
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+
+### Query Parameters
+
+<ParamField query="conversation_id" type="string" required>
+  UUID of the conversation whose messages to retrieve.
+</ParamField>
+
+<ParamField query="user" type="string">
+  The end-user identifier.
+</ParamField>
+
+<ParamField query="first_id" type="string">
+  UUID of the earliest message from the previous page. Omit to get the most recent messages.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of messages to return per page. Range: `1`–`100`. Defaults to `20`.
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  List of message objects, ordered from oldest to newest.
+
+  <Expandable title="Message object">
+    <ResponseField name="id" type="string">Message UUID.</ResponseField>
+    <ResponseField name="conversation_id" type="string">Parent conversation UUID.</ResponseField>
+    <ResponseField name="parent_message_id" type="string">UUID of the parent message in a thread, if any.</ResponseField>
+    <ResponseField name="inputs" type="object">Input variables at the time this message was sent.</ResponseField>
+    <ResponseField name="query" type="string">The user's question text.</ResponseField>
+    <ResponseField name="answer" type="string">The model's response text.</ResponseField>
+    <ResponseField name="feedback" type="object">
+      User feedback on this message, if any.
+      <Expandable title="Feedback fields">
+        <ResponseField name="rating" type="string">`"like"` or `"dislike"`.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="retriever_resources" type="array">
+      Knowledge base segments referenced during generation.
+      <Expandable title="Retriever resource fields">
+        <ResponseField name="position" type="integer">Reference order.</ResponseField>
+        <ResponseField name="dataset_id" type="string">Source dataset ID.</ResponseField>
+        <ResponseField name="dataset_name" type="string">Source dataset name.</ResponseField>
+        <ResponseField name="document_id" type="string">Source document ID.</ResponseField>
+        <ResponseField name="document_name" type="string">Source document name.</ResponseField>
+        <ResponseField name="segment_id" type="string">Source segment ID.</ResponseField>
+        <ResponseField name="score" type="number">Relevance score (0–1).</ResponseField>
+        <ResponseField name="content" type="string">Segment text.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="agent_thoughts" type="array">Agent reasoning steps (agent chat only).</ResponseField>
+    <ResponseField name="message_files" type="array">Files attached to or generated during this message.</ResponseField>
+    <ResponseField name="status" type="string">Message status, e.g. `"normal"` or `"error"`.</ResponseField>
+    <ResponseField name="error" type="string">Error message if status is `"error"`.</ResponseField>
+    <ResponseField name="created_at" type="integer">Unix timestamp of creation.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if there are earlier messages beyond this page.
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  The limit that was applied to this response.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `404` | Conversation not found, or `first_id` message not found |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl 'https://api.dify.ai/v1/messages?conversation_id={conv_id}&user=user-123&limit=20' \
+  -H 'Authorization: Bearer {api_key}'
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.dify.ai/v1/messages",
+    headers={"Authorization": "Bearer {api_key}"},
+    params={
+        "conversation_id": "{conv_id}",
+        "user": "user-123",
+        "limit": 20,
+    },
+)
+print(response.json())
+```
+</CodeGroup>

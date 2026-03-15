@@ -1,0 +1,80 @@
+---
+title: "List Datasets"
+description: "GET /datasets — Retrieve a paginated list of knowledge base datasets."
+---
+
+## Endpoint
+
+```
+GET /datasets
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+
+### Query Parameters
+
+<ParamField query="page" type="integer">
+  Page number. Starts at `1`. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of datasets per page. Defaults to `20`.
+</ParamField>
+
+<ParamField query="keyword" type="string">
+  Optional search keyword to filter datasets by name.
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  List of dataset objects. Each object has the same shape as the response from [Create Dataset](/api-reference/knowledge/create-dataset).
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if there are more datasets on the next page.
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  The page size applied to this response.
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of datasets matching the query.
+</ResponseField>
+
+<ResponseField name="page" type="integer">
+  Current page number.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl 'https://api.dify.ai/v1/datasets?page=1&limit=20' \
+  -H 'Authorization: Bearer {api_key}'
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.dify.ai/v1/datasets",
+    headers={"Authorization": "Bearer {api_key}"},
+    params={"page": 1, "limit": 20},
+)
+print(response.json())
+```
+</CodeGroup>

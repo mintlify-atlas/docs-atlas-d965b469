@@ -1,0 +1,135 @@
+---
+title: "Plugins"
+description: "How Dify's plugin system extends the platform with new tools, models, agent strategies, datasources, triggers, and HTTP endpoints."
+keywords: ["plugins", "plugin system", "marketplace", "tool plugin", "model plugin", "agent strategy", "extension"]
+---
+
+Dify's plugin system allows the platform to be extended without modifying core code. Plugins are self-contained packages that declare their capabilities in a manifest, are sandboxed at runtime, and can be installed from the marketplace, GitHub, a `.difypkg` file, or a remote URL.
+
+## Plugin categories
+
+The `PluginCategory` enum (`api/core/plugin/entities/plugin.py`) defines six plugin types:
+
+<CardGroup cols={2}>
+  <Card title="Tool" icon="wrench">
+    Adds one or more callable tools to the tool engine. Tool plugins appear under **Tools** in the agent and workflow Tool node pickers.
+  </Card>
+  <Card title="Model" icon="microchip">
+    Registers a new LLM, embedding, rerank, TTS, speech-to-text, or moderation provider. After installation the provider appears in **Settings → Model Providers**.
+  </Card>
+  <Card title="AgentStrategy" icon="robot">
+    Implements a custom agent reasoning strategy. The strategy is exposed in the workflow Agent node alongside the built-in ReAct and Function Calling options.
+  </Card>
+  <Card title="Extension (Endpoint)" icon="webhook">
+    Registers a custom HTTP endpoint within the Dify server. Useful for webhooks, OAuth callbacks, and API adapters that need to run inside the Dify process.
+  </Card>
+  <Card title="Datasource" icon="database">
+    Adds a new document datasource type (e.g., a proprietary document management system) to the RAG pipeline's extraction step.
+  </Card>
+  <Card title="Trigger" icon="bolt">
+    Defines a custom workflow trigger that can start workflows in response to external events beyond the built-in webhook and schedule triggers.
+  </Card>
+</CardGroup>
+
+## Plugin manifest
+
+Every plugin is described by a `PluginDeclaration` model that includes:
+
+```yaml
+name: my-plugin          # kebab-case, max 128 chars
+version: "0.1.0"
+author: your-handle      # alphanumeric + underscore/dash, max 64 chars
+category: tool           # tool | model | extension | agent-strategy | datasource | trigger
+description:
+  en_US: "A brief description of what this plugin does."
+icon: icon.svg
+resource:
+  memory: 52428800       # bytes; sandbox memory limit
+  permission:
+    tool:
+      enabled: true
+    model:
+      enabled: false
+plugins:
+  tools:
+    - tools/my_tool.yaml
+```
+
+The `category` field is inferred automatically from which `plugins` sub-keys are populated (tools, models, endpoints, datasources, triggers) if not set explicitly.
+
+## Installation sources
+
+Plugins can be installed from four sources (`PluginInstallationSource`):
+
+<Tabs>
+  <Tab title="Marketplace">
+    Browse and install plugins from the Dify marketplace directly in the UI. Marketplace plugins are reviewed and versioned.
+  </Tab>
+  <Tab title="GitHub">
+    Install directly from a GitHub repository by providing the repo URL and a release tag. Dify fetches and verifies the package.
+  </Tab>
+  <Tab title="Package file">
+    Upload a `.difypkg` archive. Useful for private plugins or air-gapped environments.
+  </Tab>
+  <Tab title="Remote URL">
+    Provide an HTTPS URL pointing to a `.difypkg` file. Dify downloads and installs it on demand.
+  </Tab>
+</Tabs>
+
+## Plugin lifecycle
+
+<Steps>
+  <Step title="Installation">
+    The plugin daemon (`api/core/plugin/impl/plugin.py`) validates the manifest, checks the minimum Dify version requirement, and registers the plugin in the database against the workspace tenant.
+  </Step>
+  <Step title="Capability registration">
+    Depending on category, the daemon registers the plugin's tools, models, endpoints, datasources, agent strategies, or triggers with the respective subsystem managers.
+  </Step>
+  <Step title="Runtime invocation">
+    When a tool, model, or endpoint exposed by the plugin is called, the plugin daemon routes the request to the plugin process via the backwards-invocation bridge (`api/core/plugin/backwards_invocation/`). The plugin runs in a sandboxed environment with the memory limit declared in its manifest.
+  </Step>
+  <Step title="Update">
+    Installing a newer version of the same plugin performs an in-place update. The manifest version is validated against semantic versioning rules before the update is applied.
+  </Step>
+  <Step title="Uninstallation">
+    Removing a plugin de-registers all of its capabilities. Any workflows or agents referencing the plugin's tools will surface a validation error until the references are updated.
+  </Step>
+</Steps>
+
+## Plugin permissions
+
+Plugins declare the resources they need in `PluginResourceRequirements.Permission`. The available permission scopes are:
+
+| Scope | Description |
+|---|---|
+| `tool.enabled` | Can expose callable tools |
+| `model.llm` | Can invoke LLM models |
+| `model.text_embedding` | Can invoke text-embedding models |
+| `model.rerank` | Can invoke rerank models |
+| `model.tts` | Can invoke TTS models |
+| `model.speech2text` | Can invoke speech-to-text models |
+| `model.moderation` | Can invoke moderation models |
+| `node.enabled` | Can register workflow nodes |
+| `endpoint.enabled` | Can expose HTTP endpoints |
+| `storage.enabled` | Can read/write persistent key-value storage (up to `storage.size` bytes) |
+
+At runtime the plugin daemon enforces declared permissions; any request outside the declared scope is rejected.
+
+## Plugin implementation layer
+
+The plugin daemon exposes typed implementation facades under `api/core/plugin/impl/`:
+
+| Module | Responsibility |
+|---|---|
+| `tool.py` | Routes tool invocation calls to the correct plugin process |
+| `model.py` | Proxies model API calls to plugin-provided model implementations |
+| `endpoint.py` | Registers and handles HTTP endpoint requests for Extension plugins |
+| `agent.py` | Resolves and executes plugin-defined agent strategies |
+| `datasource.py` | Connects plugin datasources to the RAG extraction pipeline |
+| `trigger.py` | Manages plugin trigger registration and event dispatch |
+| `asset.py` | Serves plugin-owned static assets (icons, images) |
+| `oauth.py` | Handles OAuth flows for tools that require user-level authorization |
+
+<Warning>
+Plugins run in a separate sandboxed process. Avoid granting `storage.enabled` to untrusted plugins unless you have reviewed the plugin source code, as persistent storage is shared within the workspace.
+</Warning>

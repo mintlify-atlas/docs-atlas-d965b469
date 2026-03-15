@@ -1,0 +1,101 @@
+---
+title: "Architecture overview"
+description: "How Dify is structured: app modes, backend, frontend, and the core subsystems that power every feature."
+keywords: ["dify architecture", "app modes", "workflow", "agent", "flask", "nextjs"]
+---
+
+Dify is built as two independently deployable services — a Python Flask backend and a Next.js frontend — that together expose four application modes and a suite of AI subsystems.
+
+## Backend and frontend
+
+<CardGroup cols={2}>
+  <Card title="Backend API" icon="server">
+    A Python 3.x Flask application located in `api/`. It implements Domain-Driven Design, handling LLM orchestration, RAG indexing, agent execution, workflow graph evaluation, model credential management, and the REST API consumed by the UI and external clients.
+  </Card>
+  <Card title="Frontend" icon="browser">
+    A Next.js + TypeScript application in `web/`. It provides the visual workflow canvas, Prompt IDE, knowledge-base management UI, plugin marketplace, and the embeddable end-user chat widget.
+  </Card>
+</CardGroup>
+
+Both are packaged as Docker images and orchestrated with Docker Compose or Kubernetes. The two services communicate exclusively over HTTP — the frontend calls the backend REST API; there is no direct database access from the frontend.
+
+## App modes
+
+Every application in Dify is created in one of four modes. The mode determines which runner is invoked at request time (`api/core/app/apps/`).
+
+<Tabs>
+  <Tab title="Chat">
+    A stateful, multi-turn chatbot backed by a single LLM call. Conversations are stored and each turn can optionally include knowledge-base context, moderation, and annotation-based overrides. Entry point: `api/core/app/apps/chat/`.
+  </Tab>
+  <Tab title="Text Generator (Completion)">
+    A single-turn, prompt-in / text-out application. Useful for summarization, classification, and structured-output generation tasks. Entry point: `api/core/app/apps/completion/`.
+  </Tab>
+  <Tab title="Workflow">
+    A DAG-based pipeline where the developer assembles nodes on a canvas. Each node performs a discrete operation (LLM call, code execution, HTTP request, knowledge retrieval, etc.). Supports both one-shot (**Workflow**) and conversational (**Chatflow**) variants. Entry point: `api/core/app/apps/workflow/` and `api/core/app/apps/advanced_chat/`.
+  </Tab>
+  <Tab title="Agent Chat">
+    A conversational interface that exposes a ReAct or Function-Calling agent to end users. The agent can invoke tools across multiple reasoning iterations before returning a final answer. Entry point: `api/core/app/apps/agent_chat/`.
+  </Tab>
+</Tabs>
+
+## Core subsystems
+
+<AccordionGroup>
+  <Accordion title="Workflow engine" icon="diagram-project">
+    The workflow engine (`api/core/workflow/`) parses a JSON graph configuration into a node registry, then traverses the DAG by evaluating each node in dependency order. Variables flow between nodes through a typed variable pool. See [Workflows](/concepts/workflows) for details.
+  </Accordion>
+
+  <Accordion title="RAG pipeline" icon="database">
+    The RAG subsystem (`api/core/rag/`) handles the full document lifecycle: extraction from PDF, DOCX, HTML, CSV, and other formats; configurable text splitting; embedding via any configured text-embedding model; and storage in a vector or full-text index. At query time it retrieves relevant chunks and injects them into the LLM prompt. See [RAG Pipeline](/concepts/rag-pipeline).
+  </Accordion>
+
+  <Accordion title="Agent runner" icon="robot">
+    The agent runner (`api/core/agent/`) implements two strategies — Chain-of-Thought (ReAct) and Function Calling — and iterates up to a configurable `max_iteration` limit. At each step it selects and invokes tools, accumulates a scratchpad, and decides when a final answer is ready. See [Agents](/concepts/agents).
+  </Accordion>
+
+  <Accordion title="Model manager" icon="microchip">
+    The model manager (`api/core/model_manager.py`) resolves provider credentials, initialises `ModelInstance` objects, and routes requests to the correct model type (LLM, text-embedding, rerank, TTS, speech-to-text). See [Models](/concepts/models).
+  </Accordion>
+
+  <Accordion title="Tool engine" icon="wrench">
+    The tool engine (`api/core/tools/`) exposes built-in tools, API-defined custom tools, workflow-as-tool adapters, MCP tools, and plugin tools through a unified `ToolProviderType` interface. See [Tools](/concepts/tools).
+  </Accordion>
+
+  <Accordion title="Plugin system" icon="puzzle-piece">
+    The plugin daemon (`api/core/plugin/`) manages installation, lifecycle, and sandboxed execution of community plugins. Plugins extend Dify with new tool providers, model providers, agent strategies, datasources, triggers, and HTTP endpoints. See [Plugins](/concepts/plugins).
+  </Accordion>
+</AccordionGroup>
+
+## Request lifecycle
+
+<Steps>
+  <Step title="Client sends request">
+    An end user or external system sends an HTTP request to the Dify backend REST API (e.g., `POST /v1/chat-messages`).
+  </Step>
+  <Step title="App generator dispatches runner">
+    The app generator (`api/core/app/apps/`) looks up the app record, resolves its mode, builds an `AppGenerateEntity`, and hands off execution to the appropriate runner (chat, completion, workflow, or agent).
+  </Step>
+  <Step title="Runner orchestrates subsystems">
+    The runner calls the model manager to get an `ModelInstance`, retrieves knowledge-base context via the RAG pipeline if configured, invokes the workflow graph or agent loop, and streams results to the queue manager.
+  </Step>
+  <Step title="Response streamed to client">
+    The queue manager emits server-sent events (SSE) back to the caller. For blocking calls, the full response is buffered and returned as JSON.
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Workflows" icon="diagram-project" href="/concepts/workflows">
+    Learn how the DAG-based workflow engine works and which node types are available.
+  </Card>
+  <Card title="RAG pipeline" icon="database" href="/concepts/rag-pipeline">
+    Understand how documents are ingested, chunked, embedded, and retrieved.
+  </Card>
+  <Card title="Agents" icon="robot" href="/concepts/agents">
+    Explore the ReAct and Function Calling agent strategies.
+  </Card>
+  <Card title="Models" icon="microchip" href="/concepts/models">
+    See how to configure and switch between LLM providers.
+  </Card>
+</CardGroup>

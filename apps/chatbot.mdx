@@ -1,0 +1,174 @@
+---
+title: "Building a chatbot"
+description: "Create conversational AI apps using Dify's Chat and Agent Chat modes."
+keywords: ["chatbot", "chat app", "conversation", "opening remarks", "memory window", "embed"]
+---
+
+A Dify chatbot is a conversational app backed by an LLM. Users exchange messages with the app in a persistent conversation thread. Dify supports two chatbot modes:
+
+<CardGroup cols={2}>
+  <Card title="Chat" icon="message">
+    Standard multi-turn chat. The LLM responds directly from its system prompt, conversation history, and any attached knowledge bases.
+  </Card>
+  <Card title="Agent Chat" icon="robot">
+    The LLM can call tools (web search, code execution, custom APIs) before composing a reply. Powered by ReAct or Function Calling strategies.
+  </Card>
+</CardGroup>
+
+<Note>
+  Agent Chat is a superset of Chat. If you do not need tool use, start with Chat — you can upgrade later without losing your configuration.
+</Note>
+
+## Create a chatbot
+
+<Steps>
+  <Step title="Open the app dashboard">
+    From the Dify sidebar, click **Studio** and then click **Create App**.
+  </Step>
+
+  <Step title="Choose an app type">
+    Select **Chatbot**. Give it a name and an optional description, then click **Create**.
+
+    Dify creates an app in `chat` mode. To enable agent capabilities, see [Selecting an agent strategy](/apps/agent).
+  </Step>
+
+  <Step title="Select a model">
+    In the Prompt IDE, click the model selector at the top of the left panel. Choose a provider and model from your configured integrations.
+
+    Use the parameter controls to set:
+    - **Temperature** — controls output randomness (0 = deterministic, 2 = highly varied)
+    - **Max tokens** — maximum tokens in each reply
+    - **Top P** — nucleus sampling threshold
+    - **Stop sequences** — tokens that terminate generation early
+  </Step>
+
+  <Step title="Write the system prompt">
+    Enter your system prompt in the **System Prompt** editor. This text is injected before every conversation and defines the assistant's persona, behavior, and constraints.
+
+    You can insert variable placeholders using double curly braces — for example, `{{user_name}}`. Variables must be declared in the **Variables** panel and are filled by the caller at runtime.
+  </Step>
+
+  <Step title="Configure conversation settings">
+    Expand the **Features** panel on the left to configure:
+
+    | Setting | Description |
+    |---|---|
+    | **Opening remarks** | A greeting message shown to users when they start a new conversation. Populated from `opening_statement` in the app config. |
+    | **Suggested questions** | Up to five example questions shown beneath the opening remark. |
+    | **Suggested questions after answer** | Auto-generates follow-up suggestions after each assistant reply. |
+    | **Memory window** | Number of prior conversation turns injected into the context. Older turns are truncated first. |
+    | **Speech to text** | Enables voice input in the web embed. |
+    | **Text to speech** | Reads assistant replies aloud. |
+    | **Citation and attribution** | Surfaces source documents when the app queries a knowledge base. |
+  </Step>
+
+  <Step title="Test in the debug panel">
+    Click **Debug and Preview** (or press the right-side panel toggle) to open a live chat interface. Send test messages and verify the assistant's responses before publishing.
+
+    To compare multiple models side by side, enable **Compare Mode** in the debug toolbar. See [Prompt IDE](/apps/prompt-ide) for details.
+  </Step>
+
+  <Step title="Publish the app">
+    When the chatbot behaves as expected, click **Publish**. Choose from:
+
+    - **Web app** — share a hosted URL directly with users
+    - **Embed** — paste an iframe or JavaScript snippet into any website
+    - **API** — call the `POST /v1/chat-messages` endpoint from your own backend
+  </Step>
+</Steps>
+
+## Conversation settings
+
+### Memory window
+
+The memory window controls how many prior dialogue turns are included in each LLM call. A larger window preserves more context but increases token usage and cost. Set it to `0` to disable memory entirely (stateless completions).
+
+### Opening remarks and suggested questions
+
+The `opening_statement` field is shown to users when they open a new conversation. Combine it with an array of `suggested_questions` to guide users toward useful inputs:
+
+```json
+{
+  "opening_statement": "Hi! I can help you write, edit, or summarize text. What would you like to do?",
+  "suggested_questions": [
+    "Summarize a document for me",
+    "Help me write a blog post",
+    "Explain a concept in simple terms"
+  ]
+}
+```
+
+### Annotation reply
+
+When annotation reply is enabled, Dify matches incoming messages against a library of saved question-answer pairs using an embedding model. Matched pairs are returned directly without calling the LLM, improving consistency for known questions.
+
+## Embed and share
+
+### Iframe embed
+
+From **Overview → Embed**, copy the iframe snippet:
+
+```html
+<iframe
+  src="https://your-dify-domain/chatbot/YOUR_APP_ID"
+  style="width: 100%; height: 100%; min-height: 700px"
+  frameborder="0"
+  allow="microphone">
+</iframe>
+```
+
+Replace `YOUR_APP_ID` with your app's ID from the URL bar.
+
+### API integration
+
+To call the chatbot from your own application, use the Service API. Obtain an API key from **API → API Key**.
+
+<Tabs>
+  <Tab title="Send a message">
+    ```bash
+    curl -X POST https://your-dify-domain/v1/chat-messages \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "inputs": {},
+        "query": "Hello, who are you?",
+        "response_mode": "streaming",
+        "conversation_id": "",
+        "user": "user-123"
+      }'
+    ```
+  </Tab>
+  <Tab title="Continue a conversation">
+    Pass the `conversation_id` returned from the first response to continue the same thread:
+
+    ```bash
+    curl -X POST https://your-dify-domain/v1/chat-messages \
+      -H "Authorization: Bearer YOUR_API_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "inputs": {},
+        "query": "What did I just ask?",
+        "response_mode": "blocking",
+        "conversation_id": "CONVERSATION_ID_FROM_PREVIOUS_RESPONSE",
+        "user": "user-123"
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+The API supports both `blocking` and `streaming` response modes. Streaming returns server-sent events and is recommended for real-time interfaces.
+
+<Tip>
+  Set `auto_generate_name` to `true` in your API request to let Dify automatically generate a conversation title from the first message.
+</Tip>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Building an AI agent" icon="robot" href="/apps/agent">
+    Add tool use to your chatbot with the Agent Chat mode.
+  </Card>
+  <Card title="Prompt IDE" icon="code" href="/apps/prompt-ide">
+    Learn how to iterate on prompts and compare models side by side.
+  </Card>
+</CardGroup>

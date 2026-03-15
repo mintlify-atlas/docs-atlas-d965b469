@@ -1,97 +1,75 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Dify — Production-Ready LLM App Platform"
+description: "Build, deploy, and operate AI-powered applications with visual workflows, RAG pipelines, agent capabilities, and 100+ model integrations."
 ---
 
-## Setting up
-
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get Dify running in under 5 minutes with Docker Compose.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Dify Cloud" icon="cloud" href="/getting-started/cloud">
+    Try Dify instantly — no setup required.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Core Concepts" icon="book" href="/concepts/overview">
+    Understand workflows, RAG, agents, and more.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="API Reference" icon="code" href="/api-reference/overview">
+    Integrate Dify into your applications via REST API.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What is Dify?
 
-Everything you need to create world-class documentation.
+Dify is an open-source LLM application development platform. Its intuitive interface combines AI workflow orchestration, Retrieval-Augmented Generation (RAG) pipelines, agent capabilities, model management, and production observability — letting you go from prototype to production quickly.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Visual Workflows" icon="diagram-project">
+    Build complex AI pipelines on a visual canvas with drag-and-drop nodes for LLMs, code, tools, and data.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="RAG Pipeline" icon="database">
+    Ingest documents (PDF, DOCX, PPT) into a knowledge base and connect it to any LLM with semantic search.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="AI Agents" icon="robot">
+    Create agents with ReAct or Function Calling strategies backed by 50+ built-in tools.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="100+ LLM Providers" icon="microchip">
+    Connect to OpenAI, Anthropic, Google, Mistral, Llama, and any OpenAI-compatible endpoint.
   </Card>
-</Columns>
+  <Card title="LLMOps" icon="chart-line">
+    Monitor logs, annotate outputs, and continuously improve prompts with production data.
+  </Card>
+  <Card title="Backend-as-a-Service" icon="server">
+    Every feature is backed by a REST API so you can embed Dify into any application.
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Deployment options
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={3}>
+  <Card title="Dify Cloud" icon="cloud" href="/getting-started/cloud">
+    Hosted service with a free sandbox plan. Zero infrastructure to manage.
+  </Card>
+  <Card title="Self-hosted (Docker)" icon="docker" href="/deployment/docker-compose">
+    Run Dify on your own infrastructure with Docker Compose in minutes.
+  </Card>
+  <Card title="Kubernetes" icon="cubes" href="/deployment/kubernetes">
+    Deploy to Kubernetes for high availability and enterprise scale.
+  </Card>
+</CardGroup>
+
+## Explore the platform
+
+<CardGroup cols={2}>
+  <Card title="Building Chatbots" icon="comments" href="/apps/chatbot">
+    Create conversational apps powered by any LLM with session memory.
+  </Card>
+  <Card title="Building Workflows" icon="sitemap" href="/apps/workflow">
+    Orchestrate multi-step AI pipelines with branching, loops, and tool calls.
+  </Card>
+  <Card title="Knowledge Base & RAG" icon="book-open" href="/knowledge/create-knowledge-base">
+    Upload documents and enable LLMs to answer questions from your data.
+  </Card>
+  <Card title="Plugin System" icon="plug" href="/plugins/overview">
+    Extend Dify with plugins and MCP (Model Context Protocol) tools.
+  </Card>
+</CardGroup>

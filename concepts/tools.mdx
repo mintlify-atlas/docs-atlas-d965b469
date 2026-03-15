@@ -1,0 +1,131 @@
+---
+title: "Tools"
+description: "Built-in tools, custom API tools, workflow-as-tool, MCP tools, and how they all fit together in Dify's tool engine."
+keywords: ["tools", "built-in tools", "custom tools", "OpenAPI", "MCP", "workflow as tool", "plugin tools"]
+---
+
+Tools are callable units of functionality that agents and workflow Tool nodes can invoke. Dify's tool engine (`api/core/tools/`) unifies five distinct tool source types behind the `ToolProviderType` enum and a common invocation interface.
+
+## Tool provider types
+
+```python
+# api/core/tools/entities/tool_entities.py
+class ToolProviderType(StrEnum):
+    PLUGIN      = auto()            # plugin-packaged tools
+    BUILT_IN    = "builtin"         # shipped with Dify
+    WORKFLOW    = auto()            # published workflow exposed as a tool
+    API         = auto()            # user-defined OpenAPI/Swagger tool
+    APP         = auto()            # Dify app called as a tool
+    DATASET_RETRIEVAL = "dataset-retrieval"
+    MCP         = auto()            # Model Context Protocol server tools
+```
+
+## Built-in tools
+
+Built-in tool providers are implemented under `api/core/tools/builtin_tool/providers/`. The current set covers four categories:
+
+<CardGroup cols={2}>
+  <Card title="Audio" icon="music">
+    Speech synthesis and audio file manipulation tools.
+  </Card>
+  <Card title="Code execution" icon="code">
+    Execute sandboxed code snippets and return results.
+  </Card>
+  <Card title="Time utilities" icon="clock">
+    Get the current date/time, calculate durations, and format timestamps.
+  </Card>
+  <Card title="Web scraping" icon="globe">
+    Fetch and parse web page content for use in prompts and pipelines.
+  </Card>
+</CardGroup>
+
+Additional providers — including search engines, image generation models, databases, and productivity integrations — are available as **plugins** distributed through the marketplace. See [Plugins](/concepts/plugins).
+
+<Note>
+Each built-in provider declares its tools in a YAML manifest (see `_position.yaml` and individual `provider.py` files). Tool inputs and outputs are described using the `PluginParameter` schema, which is shared with the plugin parameter system.
+</Note>
+
+## Custom API tools
+
+Any REST API described by an OpenAPI 3.x or Swagger 2.x specification can be imported as a custom tool provider:
+
+<Steps>
+  <Step title="Import the spec">
+    In **Tools → Custom tools**, paste the OpenAPI JSON/YAML or provide a URL. Dify parses the spec and creates one tool per operation.
+  </Step>
+  <Step title="Configure authentication">
+    Select the auth scheme declared in the spec: API key (header or query), Bearer token, or OAuth 2.0. Credentials are stored encrypted per-tenant.
+  </Step>
+  <Step title="Test and publish">
+    Use the built-in test runner to call each operation with sample inputs before making the tool available to agents and workflows.
+  </Step>
+  <Step title="Use in an agent or workflow">
+    Add the custom tool to an agent's tool list or insert a Tool node in a workflow and select your custom provider and operation.
+  </Step>
+</Steps>
+
+The `ApiProviderSchemaType` enum (`api/core/tools/entities/tool_entities.py`) accepts `OPENAPI`, `SWAGGER`, and `OPENAI_PLUGIN` formats.
+
+## Workflow as tool
+
+Any published **Workflow** app can be wrapped as a tool via `api/core/tools/workflow_as_tool/`. This lets you:
+
+- Compose complex multi-node pipelines into a single callable unit
+- Reuse workflows across multiple agents without duplicating logic
+- Version workflows independently of the agents that use them
+
+The workflow's START node input schema becomes the tool's parameter schema. Outputs of the workflow's END node are returned as the tool result.
+
+## MCP tools
+
+Dify supports the **Model Context Protocol** (MCP), allowing agents to connect to any MCP-compatible server. MCP tool providers are implemented in `api/core/tools/mcp_tool/`.
+
+MCP servers expose tools, resources, and prompts over a standard JSON-RPC protocol. Once an MCP server URL is registered in Dify, all tools advertised by that server become available to agents and Tool nodes automatically.
+
+<Tip>
+MCP is particularly useful for connecting agents to internal services (databases, code repositories, ticketing systems) without writing a full custom tool provider.
+</Tip>
+
+## Tool labels
+
+Tools are tagged with labels from the `ToolLabelEnum` to aid discovery:
+
+```
+search | image | videos | weather | finance | design | travel
+social | news | medical | productivity | education | business
+entertainment | utilities | rag | other
+```
+
+## Tool authentication and security
+
+<AccordionGroup>
+  <Accordion title="Credential storage">
+    All tool credentials (API keys, OAuth tokens) are stored encrypted in the database, scoped to the workspace tenant. The tool engine fetches credentials at invocation time and never exposes them in logs or API responses.
+  </Accordion>
+  <Accordion title="SSRF protection">
+    Outbound HTTP requests made by the HTTP Request node and custom tools are routed through `ssrf_proxy` (`api/core/helper/ssrf_proxy.py`), which blocks requests to private IP ranges and configures retry limits.
+  </Accordion>
+  <Accordion title="Sandboxed code execution">
+    The Code node and Template Transform node execute user code in a sandboxed environment with strict resource limits (`CodeNodeLimits`): maximum string length, number ranges, array sizes, and recursion depth.
+  </Accordion>
+  <Accordion title="Plugin permission model">
+    Plugin tools declare required permissions in their manifest (`PluginResourceRequirements.Permission`). A plugin must explicitly request access to `tool`, `model`, `endpoint`, or `storage` resources; ungranted permissions are denied at runtime.
+  </Accordion>
+</AccordionGroup>
+
+## Tool invocation flow
+
+<Steps>
+  <Step title="Tool node or agent selects a tool">
+    The workflow Tool node or the agent runner resolves the tool by `(provider_type, provider_id, tool_name)` via `ToolManager` (`api/core/tools/tool_manager.py`).
+  </Step>
+  <Step title="Credentials are fetched">
+    The tool manager retrieves encrypted credentials for the provider and attaches them to the tool invocation context.
+  </Step>
+  <Step title="Tool engine invokes the tool">
+    `ToolEngine` (`api/core/tools/tool_engine.py`) calls the tool's `invoke` method and collects `ToolInvokeMessage` results.
+  </Step>
+  <Step title="Files are handled">
+    Any binary outputs (images, audio, documents) returned by the tool are managed by `ToolFileManager` (`api/core/tools/tool_file_manager.py`), which stores them and returns signed URLs for downstream use.
+  </Step>
+</Steps>

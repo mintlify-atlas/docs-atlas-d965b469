@@ -1,0 +1,117 @@
+---
+title: "API Overview"
+description: "Introduction to the Dify REST API — base URLs, request format, streaming, and available API groups."
+---
+
+The Dify REST API lets you integrate your Dify applications directly into your own products and services. Every Dify app exposes its own set of endpoints, authenticated with an app-level API key.
+
+## Base URL
+
+| Deployment | Base URL |
+|---|---|
+| Dify Cloud | `https://api.dify.ai/v1` |
+| Self-hosted | `http://<your-host>/v1` |
+
+All paths in this reference are relative to the base URL. For example, the full URL for `POST /chat-messages` on Dify Cloud is:
+
+```
+https://api.dify.ai/v1/chat-messages
+```
+
+## Authentication
+
+Every request must include an `Authorization` header with a Bearer token:
+
+```http
+Authorization: Bearer {api_key}
+```
+
+API keys are scoped to individual Dify apps. You can find your app's API key under **App → API Access** in the Dify dashboard. See [Authentication](/api-reference/authentication) for full details.
+
+## Request Format
+
+- All request bodies must be JSON (`Content-Type: application/json`), except for file upload endpoints which use `multipart/form-data`.
+- All responses are JSON unless otherwise noted.
+- Timestamps in responses are Unix epoch integers (seconds).
+
+## Response Format
+
+A typical successful JSON response looks like:
+
+```json
+{
+  "message_id": "abc123",
+  "conversation_id": "def456",
+  "answer": "Hello! How can I help you?",
+  "created_at": 1716000000
+}
+```
+
+Errors follow a consistent envelope:
+
+```json
+{
+  "code": "invalid_param",
+  "message": "query is required",
+  "status": 400
+}
+```
+
+### Common HTTP Status Codes
+
+| Code | Meaning |
+|---|---|
+| `200` | Success |
+| `201` | Created |
+| `204` | No content (successful delete) |
+| `400` | Bad request — invalid or missing parameters |
+| `401` | Unauthorized — missing or invalid API key |
+| `403` | Forbidden — insufficient permissions |
+| `404` | Not found |
+| `413` | Payload too large (file upload) |
+| `415` | Unsupported media type |
+| `429` | Rate limit exceeded |
+| `500` | Internal server error |
+
+## Streaming Responses (SSE)
+
+Endpoints that support `response_mode: "streaming"` return a stream of [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). Each event is a line prefixed with `data:` followed by a JSON object:
+
+```
+data: {"event": "message", "answer": "Hello", "task_id": "...", ...}
+
+data: {"event": "message_end", "metadata": {...}, ...}
+```
+
+The stream is terminated by a `message_end` (chat/completion) or `workflow_finished` (workflow) event. On error, an `error` event is emitted before the stream closes.
+
+### SSE Event Types
+
+| Event | Emitted by | Description |
+|---|---|---|
+| `message` | Chat, Completion | Incremental answer text chunk |
+| `message_end` | Chat, Completion | Final event; includes token usage and retriever resources |
+| `agent_message` | Agent Chat | Incremental agent answer chunk |
+| `agent_thought` | Agent Chat | Agent reasoning step (tool calls, observations) |
+| `message_file` | Chat, Agent | A file produced during generation |
+| `workflow_started` | Workflow | Workflow execution has begun |
+| `node_started` | Workflow | A workflow node started executing |
+| `node_finished` | Workflow | A workflow node finished |
+| `workflow_finished` | Workflow | Workflow execution complete |
+| `error` | All | Stream-level error; stream will close |
+| `ping` | All | Keep-alive heartbeat every 10 s |
+
+## Rate Limiting
+
+Dify Cloud enforces per-app rate limits. When a limit is exceeded the API returns `429 Too Many Requests`. Implement exponential back-off and retry logic in your client. Self-hosted deployments have no built-in rate limits by default.
+
+## Available API Groups
+
+| Group | Description |
+|---|---|
+| [Chat](/api-reference/chat/send-message) | Send and manage chat conversation messages |
+| [Completion](/api-reference/completion/create-completion) | Single-turn text completion |
+| [Workflow](/api-reference/workflow/run-workflow) | Execute and monitor workflow apps |
+| [Knowledge](/api-reference/knowledge/create-dataset) | Manage knowledge base datasets and documents |
+| [Files](/api-reference/files/upload-file) | Upload files for use in conversations |
+| [Audio](/api-reference/audio/text-to-speech) | Text-to-speech and speech-to-text |

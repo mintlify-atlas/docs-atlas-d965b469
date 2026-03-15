@@ -1,0 +1,91 @@
+---
+title: "Get Conversations"
+description: "GET /conversations — List conversations for the current user."
+---
+
+## Endpoint
+
+```
+GET /conversations
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+
+### Query Parameters
+
+<ParamField query="user" type="string">
+  The end-user identifier. Returns only conversations belonging to this user.
+</ParamField>
+
+<ParamField query="last_id" type="string">
+  UUID of the last conversation from the previous page. Omit to get the first page.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of conversations to return per page. Range: `1`–`100`. Defaults to `20`.
+</ParamField>
+
+<ParamField query="sort_by" type="string">
+  Sort order. One of:
+  - `"-updated_at"` (default) — newest activity first
+  - `"updated_at"` — oldest activity first
+  - `"-created_at"` — newest creation first
+  - `"created_at"` — oldest creation first
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  List of conversation objects.
+
+  <Expandable title="Conversation object">
+    <ResponseField name="id" type="string">Conversation UUID.</ResponseField>
+    <ResponseField name="name" type="string">Auto-generated or manually set conversation name.</ResponseField>
+    <ResponseField name="inputs" type="object">Input variables captured at the start of the conversation.</ResponseField>
+    <ResponseField name="status" type="string">Conversation status, e.g. `"normal"`.</ResponseField>
+    <ResponseField name="introduction" type="string">App opening statement, if configured.</ResponseField>
+    <ResponseField name="created_at" type="integer">Unix timestamp of creation.</ResponseField>
+    <ResponseField name="updated_at" type="integer">Unix timestamp of last activity.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if there are more conversations beyond this page.
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  The limit that was applied to this response.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `404` | `last_id` does not refer to a known conversation |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl 'https://api.dify.ai/v1/conversations?user=user-123&limit=20' \
+  -H 'Authorization: Bearer {api_key}'
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.dify.ai/v1/conversations",
+    headers={"Authorization": "Bearer {api_key}"},
+    params={"user": "user-123", "limit": 20},
+)
+print(response.json())
+```
+</CodeGroup>

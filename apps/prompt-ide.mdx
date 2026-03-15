@@ -1,0 +1,159 @@
+---
+title: "Prompt IDE"
+description: "Write, test, and iterate on prompts for Chatbot and Text Generator apps using Dify's built-in editor."
+keywords: ["prompt IDE", "system prompt", "model parameters", "temperature", "multi-model comparison", "debug", "prompt variables"]
+---
+
+The Prompt IDE is the configuration and debugging interface for Chatbot and Text Generator apps. It lives in the left and right panels of the app editor and lets you write prompts, tune model parameters, and test outputs without leaving the browser.
+
+<Note>
+  The Prompt IDE is specific to apps that use `chat`, `agent-chat`, and `completion` modes. Workflow and Chatflow apps use the visual canvas editor instead.
+</Note>
+
+## System prompt editor
+
+The **System Prompt** (also called `pre_prompt` in the API) is the foundational instruction given to the LLM at the start of every conversation or completion. It is injected before any user input.
+
+### Writing a system prompt
+
+Click the **System Prompt** field in the left panel to start editing. The editor supports plain text. Best practices:
+
+- State the assistant's role in the first sentence.
+- List any rules or constraints explicitly.
+- Keep instructions concise — overly long prompts can dilute attention.
+- End with a format instruction if you want structured output.
+
+### Inserting variables
+
+You can reference variables declared in the **Variables** panel by wrapping them in double curly braces:
+
+```text
+You are a customer support agent for {{company_name}}.
+Always respond in {{language}}.
+```
+
+When a user submits a request, Dify interpolates the variable values before sending the prompt to the model. Variables are declared in the **Variables** panel below the prompt editor.
+
+### Prompt types
+
+For Chat and Agent Chat apps, Dify supports two prompt type modes controlled by `prompt_type`:
+
+| Mode | Description |
+|---|---|
+| `simple` | A single system prompt editor. The default for most apps. |
+| `advanced` | Separate system, user, and assistant message blocks. Use this to inject few-shot examples or to control the full message history sent to the model. |
+
+Switch to advanced mode by clicking **Advanced Prompt** in the toolbar.
+
+## Model parameter controls
+
+The model configuration panel is in the upper-left of the Prompt IDE. Click the model name to open the full parameter modal.
+
+### Available parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| **Model** | selector | Provider and model name. Only models you have configured in **Settings → Model Provider** are available. |
+| **Temperature** | float (0–2) | Controls randomness. 0 = deterministic, 1 = balanced, 2 = highly varied. |
+| **Max tokens** | integer | Maximum number of tokens in the generated response. Does not include the prompt tokens. |
+| **Top P** | float (0–1) | Nucleus sampling. Only tokens whose cumulative probability reaches this threshold are considered. |
+| **Presence penalty** | float (-2–2) | Positive values penalize tokens that have already appeared, encouraging new topics. |
+| **Frequency penalty** | float (-2–2) | Positive values penalize tokens proportional to how often they have appeared, reducing repetition. |
+| **Stop sequences** | list of strings | Generation stops when any of these strings appears in the output. Up to 4 sequences are supported. |
+
+<Tip>
+  The available parameters depend on the selected model. Not all providers expose every parameter. Dify only shows controls that the selected model supports.
+</Tip>
+
+## Side-by-side model comparison
+
+The debug panel supports running the same prompt against multiple models simultaneously, so you can compare quality, speed, and cost.
+
+### Enabling comparison mode
+
+<Steps>
+  <Step title="Open the debug panel">
+    Click **Debug and Preview** to open the right panel.
+  </Step>
+
+  <Step title="Enable multi-model mode">
+    Click **Compare Mode** (the split-screen icon) in the debug toolbar. The panel splits into two or more columns.
+  </Step>
+
+  <Step title="Select models for each column">
+    Each column has its own model selector. Choose a different model and parameter set for each column.
+  </Step>
+
+  <Step title="Send a test message">
+    Type a message and press **Enter** (or click **Send**). Dify sends the same input to all models simultaneously and displays each response in its column.
+  </Step>
+</Steps>
+
+Comparison mode is controlled by the `APP_CHAT_WITH_MULTIPLE_MODEL` feature flag in the debug configuration.
+
+### What to compare
+
+- **Response quality** — does one model follow instructions more precisely?
+- **Latency** — which model responds faster for your use case?
+- **Output length** — some models are more verbose than others at the same temperature.
+- **Cost** — token prices vary by provider; compare cost-per-run for your typical input.
+
+## Prompt debugging and iteration
+
+### Debug panel basics
+
+The debug panel on the right side of the Prompt IDE provides a live chat or completion interface:
+
+- For **Chat** apps: a full conversation window where you can send multiple messages in sequence.
+- For **Text Generator** apps: variable input fields and a **Run** button.
+
+Changes to the system prompt or model parameters take effect immediately in the debug panel without needing to save.
+
+### Reading debug output
+
+For agent apps, the debug panel shows the full reasoning trace:
+
+1. The agent's thought process
+2. Tool calls with input arguments
+3. Tool outputs (the raw API response or execution result)
+4. The final LLM response
+
+### Inspecting token usage
+
+After each debug run, Dify displays:
+- Total tokens consumed (prompt + completion)
+- Estimated cost based on the model's pricing
+- Response latency
+
+Use this to optimize prompts for cost and speed before publishing.
+
+### Context overflow
+
+<Warning>
+  If your system prompt plus conversation history exceeds the model's context window, Dify truncates older messages. Monitor token usage in the debug panel and reduce your memory window setting or shorten the system prompt if you see truncation warnings.
+</Warning>
+
+## Saving and publishing
+
+The Prompt IDE operates on a **draft** configuration. Your changes are saved automatically to the draft but do not affect the published app until you explicitly publish.
+
+| Action | Effect |
+|---|---|
+| **Auto-save** | Changes are saved to the draft immediately as you type. |
+| **Publish** | Promotes the current draft to the published version. Live API calls and web app users see the new configuration from this point forward. |
+| **Revert** | Discards draft changes and restores the last published configuration. |
+
+<Note>
+  API calls always use the published configuration. Debugging in the Prompt IDE uses the draft configuration. This lets you iterate safely without affecting live users.
+</Note>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Building a chatbot" icon="message" href="/apps/chatbot">
+    Apply Prompt IDE techniques to configure a full chatbot app.
+  </Card>
+  <Card title="Building a text generator" icon="pen" href="/apps/text-generator">
+    Use variables and prompt templates for single-turn generation.
+  </Card>
+</CardGroup>

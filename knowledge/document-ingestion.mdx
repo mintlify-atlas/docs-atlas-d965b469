@@ -1,0 +1,228 @@
+---
+title: "Document ingestion"
+description: "Upload documents to a Dify knowledge base via file upload, URL, Notion, or website crawl, and configure chunking and preprocessing rules."
+keywords: ["document upload", "chunking", "preprocessing", "Notion sync", "web crawl", "RAG indexing"]
+---
+
+Once a knowledge base exists, you add documents to it. Dify extracts text from each file, cleans it, splits it into chunks, and embeds the chunks into the vector store. This page covers every step of that pipeline.
+
+## Supported file formats
+
+Dify selects the extractor based on file extension. The available extractors depend on whether the Unstructured ETL integration is enabled (`ETL_TYPE=Unstructured`).
+
+<Tabs>
+  <Tab title="Standard (default)">
+    | Extension | Extractor |
+    |-----------|----------|
+    | `.pdf` | PDF extractor (native) |
+    | `.docx` | Word extractor (native) |
+    | `.md`, `.markdown`, `.mdx` | Markdown extractor |
+    | `.htm`, `.html` | HTML extractor |
+    | `.csv` | CSV extractor |
+    | `.xlsx`, `.xls` | Excel extractor |
+    | `.epub` | EPUB extractor (via Unstructured) |
+    | `.txt` and others | Plain-text extractor |
+  </Tab>
+  <Tab title="Unstructured ETL enabled">
+    All formats above, plus:
+
+    | Extension | Extractor |
+    |-----------|----------|
+    | `.doc` | Unstructured Word extractor |
+    | `.ppt` | Unstructured PPT extractor |
+    | `.pptx` | Unstructured PPTX extractor |
+    | `.xml` | Unstructured XML extractor |
+    | `.eml` | Unstructured email extractor |
+    | `.msg` | Unstructured MSG extractor |
+    | `.md`, `.markdown`, `.mdx` | Unstructured Markdown extractor (when `is_automatic=True`) |
+
+    <Note>
+    PPT files require an Unstructured API key (`UNSTRUCTURED_API_KEY`). Configure it in your environment before uploading `.ppt` files.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Upload methods
+
+<CardGroup cols={2}>
+  <Card title="File upload" icon="upload">
+    Upload one file at a time directly from your machine via the UI or the `POST /datasets/{id}/document/create-by-file` API endpoint.
+  </Card>
+  <Card title="Text input" icon="keyboard">
+    Paste raw text directly via the `POST /datasets/{id}/document/create-by-text` API. Dify wraps it in an upload file automatically.
+  </Card>
+  <Card title="Notion sync" icon="n">
+    Connect a Notion workspace and select pages to import. Dify uses the NotionExtractor to pull page content, including blocks and child pages.
+  </Card>
+  <Card title="Website crawl" icon="globe">
+    Provide a URL and choose a crawl provider — Firecrawl, WaterCrawl, or Jina Reader. Dify fetches the content and extracts the main body text.
+  </Card>
+</CardGroup>
+
+### Website crawl providers
+
+| Provider | `provider` value | Notes |
+|----------|-----------------|-------|
+| Firecrawl | `firecrawl` | Requires a Firecrawl API key. Supports full-site crawls. |
+| WaterCrawl | `watercrawl` | Self-hostable alternative to Firecrawl. |
+| Jina Reader | `jinareader` | Uses Jina AI's reader API to extract clean text. |
+
+## Processing pipeline
+
+Every document passes through the same four-stage pipeline before it is queryable.
+
+<Steps>
+  <Step title="Extraction">
+    The appropriate extractor reads the file and returns a list of `Document` objects, each with a `page_content` string and optional metadata. PDFs and DOCX files are processed natively; other formats use text or library-based parsers.
+  </Step>
+  <Step title="Cleaning (pre-processing)">
+    The `CleanProcessor` applies configured pre-processing rules to each extracted text string:
+
+    - **Always applied**: strips invalid control characters and Unicode markers (`\x00–\x08`, `\x0B`, `\x0C`, `\x0E–\x1F`, `U+FFFE`).
+    - **`remove_extra_spaces`** (optional): collapses runs of 3+ newlines to 2, and collapses any horizontal whitespace run of 2+ characters to a single space.
+    - **`remove_urls_emails`** (optional): removes bare email addresses and bare URLs from text. Markdown link and image syntax (`[text](url)` and `![alt](url)`) is preserved.
+  </Step>
+  <Step title="Chunking (segmentation)">
+    The cleaned text is split into segments according to your process rule. See [Chunking strategies](#chunking-strategies) below.
+  </Step>
+  <Step title="Embedding and indexing">
+    For high-quality datasets, each chunk is passed to the configured embedding model. The resulting vectors are upserted into the vector store alongside the chunk text. For economy datasets, keywords are extracted with Jieba and stored in a keyword table.
+  </Step>
+</Steps>
+
+## Chunking strategies
+
+Set the process rule `mode` to control how documents are split.
+
+<Tabs>
+  <Tab title="Automatic">
+    Dify uses default segmentation parameters. Chunks are split on `\n\n` first, then recursively on `\n`, sentence boundaries (`.`, `。`), spaces, and finally characters.
+
+    ```json
+    {
+      "mode": "automatic"
+    }
+    ```
+  </Tab>
+  <Tab title="Custom">
+    You control the separator and chunk size.
+
+    ```json
+    {
+      "mode": "custom",
+      "rules": {
+        "pre_processing_rules": [
+          { "id": "remove_extra_spaces", "enabled": true },
+          { "id": "remove_urls_emails", "enabled": false }
+        ],
+        "segmentation": {
+          "separator": "\\n\\n",
+          "max_tokens": 500,
+          "chunk_overlap": 50
+        }
+      }
+    }
+    ```
+
+    | Field | Description |
+    |-------|-------------|
+    | `separator` | Primary split string. Supports escape sequences (e.g. `\\n\\n`). Defaults to `\n`. |
+    | `max_tokens` | Maximum chunk length in characters. Chunks that still exceed this after splitting on `separator` are recursively split further. |
+    | `chunk_overlap` | Number of characters to repeat at the start of each subsequent chunk. Helps preserve context across chunk boundaries. |
+  </Tab>
+  <Tab title="Hierarchical">
+    Creates parent and child chunks for parent-child index (`hierarchical_model`) datasets.
+
+    ```json
+    {
+      "mode": "hierarchical",
+      "rules": {
+        "segmentation": {
+          "separator": "\\n\\n",
+          "max_tokens": 1000,
+          "chunk_overlap": 0
+        },
+        "parent_mode": "paragraph",
+        "subchunk_segmentation": {
+          "separator": "\\n",
+          "max_tokens": 200,
+          "chunk_overlap": 20
+        }
+      }
+    }
+    ```
+
+    `parent_mode` controls what is returned when a child chunk is retrieved:
+    - `paragraph` — return the parent paragraph chunk.
+    - `full-doc` — return the entire document content.
+  </Tab>
+</Tabs>
+
+## Upload a document via the API
+
+### Upload a file
+
+```bash
+curl -X POST "https://api.dify.ai/v1/datasets/{dataset_id}/document/create-by-file" \
+  -H "Authorization: Bearer {api_key}" \
+  -F "file=@/path/to/document.pdf" \
+  -F 'data={"indexing_technique":"high_quality","process_rule":{"mode":"custom","rules":{"pre_processing_rules":[{"id":"remove_extra_spaces","enabled":true},{"id":"remove_urls_emails","enabled":false}],"segmentation":{"separator":"\\n\\n","max_tokens":500,"chunk_overlap":50}}}}'
+```
+
+### Upload text directly
+
+```bash
+curl -X POST "https://api.dify.ai/v1/datasets/{dataset_id}/document/create-by-text" \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "FAQ",
+    "text": "Q: How do I reset my password?\nA: Click Forgot password on the login screen.",
+    "indexing_technique": "high_quality",
+    "process_rule": {
+      "mode": "automatic"
+    }
+  }'
+```
+
+### Check indexing status
+
+After creating a document, Dify returns a `batch` identifier. Poll the status endpoint until `indexing_status` is `completed`.
+
+```bash
+curl "https://api.dify.ai/v1/datasets/{dataset_id}/documents/{batch}/indexing-status" \
+  -H "Authorization: Bearer {api_key}"
+```
+
+The response includes per-document fields:
+
+| Field | Description |
+|-------|-------------|
+| `indexing_status` | `waiting`, `parsing`, `cleaning`, `splitting`, `indexing`, `completed`, `error`, or `paused`. |
+| `completed_segments` | Number of chunks successfully indexed. |
+| `total_segments` | Total number of chunks to index. |
+| `error` | Error message if `indexing_status` is `error`. |
+
+## Re-indexing documents
+
+To update a document after the source content changes, use the update endpoints. Dify re-runs the full extraction → cleaning → chunking → embedding pipeline.
+
+```bash
+# Update by uploading a new file
+curl -X POST "https://api.dify.ai/v1/datasets/{dataset_id}/documents/{document_id}/update-by-file" \
+  -H "Authorization: Bearer {api_key}" \
+  -F "file=@/path/to/updated.pdf"
+
+# Update by providing new text
+curl -X POST "https://api.dify.ai/v1/datasets/{dataset_id}/documents/{document_id}/update-by-text" \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "FAQ v2",
+    "text": "Q: How do I reset my password?\nA: Click Forgot password, then enter your email."
+  }'
+```
+
+<Warning>
+Archived documents cannot be updated. Un-archive the document first using the `PATCH /datasets/{id}/documents/status/un_archive` endpoint.
+</Warning>

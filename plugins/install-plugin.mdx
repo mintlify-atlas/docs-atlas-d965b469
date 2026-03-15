@@ -1,0 +1,141 @@
+---
+title: "Installing plugins"
+description: "Add new capabilities to your Dify workspace by installing plugins from the marketplace, from GitHub, or from a local package file."
+---
+
+Plugins extend what Dify can do. You install them at the workspace level and they become available to all apps in that workspace.
+
+## Prerequisites
+
+Plugin installation requires **admin** or **owner** role in the workspace. Members can browse installed plugins but cannot install, enable, disable, or remove them unless the workspace has granted broader install permissions.
+
+The workspace's plugin permissions can be reviewed by an admin under **Settings → Plugin Permissions**:
+
+| Permission setting | Who can install |
+|---|---|
+| Admin only | Only workspace admins and owners |
+| All members | Any workspace member |
+
+## Installing from the marketplace
+
+<Steps>
+  <Step title="Open the Plugin Marketplace">
+    In the Dify console sidebar, click **Plugins** to open the plugin manager. Then click **Discover** or **Marketplace** to browse available plugins.
+  </Step>
+
+  <Step title="Find the plugin you want">
+    Browse by category or use the search bar to find a specific plugin. Each listing shows the plugin name, author, a short description, and its version.
+  </Step>
+
+  <Step title="Click Install">
+    On the plugin detail page, click **Install**. Dify contacts the marketplace, downloads the plugin package, verifies its checksum, and starts the plugin daemon process.
+  </Step>
+
+  <Step title="Confirm the permissions">
+    Before installation completes, Dify shows the permissions the plugin has declared in its manifest (for example, `model.llm` or `storage.enabled`). Review these and confirm to proceed.
+  </Step>
+</Steps>
+
+<Note>
+  Marketplace plugins carry a **verified** badge when the Dify team has reviewed the plugin's source code and manifest. Unverified plugins are community-contributed and have not been reviewed.
+</Note>
+
+## Installing from GitHub
+
+You can install a plugin directly from a GitHub release:
+
+<Steps>
+  <Step title="Open the Plugin Marketplace">
+    Navigate to **Plugins → Install from GitHub**.
+  </Step>
+
+  <Step title="Enter the repository details">
+    Provide:
+    - **Repository** — e.g., `your-org/my-dify-plugin`
+    - **Version** — the release tag, e.g., `v0.3.0`
+    - **Package** — the `.difypkg` asset filename from that release
+  </Step>
+
+  <Step title="Install">
+    Click **Install**. Dify fetches the package from GitHub Releases, verifies the checksum, and installs it.
+  </Step>
+</Steps>
+
+## Installing from a package file
+
+If you have a `.difypkg` file (a plugin package built locally or received out-of-band), you can upload it directly:
+
+<Steps>
+  <Step title="Open the Plugin Marketplace">
+    Navigate to **Plugins → Upload Plugin**.
+  </Step>
+
+  <Step title="Upload the file">
+    Drag and drop the `.difypkg` file onto the upload area, or click to browse and select the file.
+  </Step>
+
+  <Step title="Confirm installation">
+    Review the plugin's name, version, author, and declared permissions. Click **Install** to confirm.
+  </Step>
+</Steps>
+
+<Warning>
+  Only install package files from sources you trust. Dify verifies the package format but cannot guarantee the safety of code in unsigned community packages.
+</Warning>
+
+## Managing installed plugins
+
+Go to **Plugins → Installed** to see all plugins installed in the workspace.
+
+### Enable and disable
+
+You can temporarily disable a plugin without uninstalling it. When disabled, the plugin daemon process is stopped and none of the plugin's tools, model providers, or endpoints are available to apps.
+
+To enable or disable:
+1. Find the plugin in the installed list
+2. Toggle the **Enabled** switch
+
+### Updating a plugin
+
+When a newer version of an installed plugin is available, an **Update available** badge appears. To update:
+
+1. Click **Update** on the plugin card
+2. Review the changelog and any new or changed permissions
+3. Confirm the update
+
+Plugin updates happen in-place. The old version is replaced and the daemon restarts automatically.
+
+### Uninstalling a plugin
+
+To remove a plugin permanently:
+
+1. Click the overflow menu (⋯) on the plugin card
+2. Select **Uninstall**
+3. Confirm the removal
+
+Uninstalling a plugin removes its process from the daemon and removes any tools, model providers, or endpoints it contributed. Apps that were using the plugin's tools will encounter errors until those tools are removed from the app configuration.
+
+<Warning>
+  If a plugin has `storage.enabled` permission, uninstalling it also deletes any data the plugin stored. This action is not reversible.
+</Warning>
+
+## Plugin permissions and workspace access
+
+Plugins run in isolated processes managed by the Dify plugin daemon. A plugin can only access Dify internals through the capabilities declared in its manifest permissions. For example:
+
+- A plugin with `model.llm` permission can call LLM providers but cannot access other workspace data directly
+- A plugin with `storage.enabled` can read and write its own key-value store but cannot access other plugins' storage
+- A plugin with `tool.enabled` can invoke other installed tools
+
+Plugins do not have direct access to the PostgreSQL database, Redis, or your workspace's users and data unless they call back through Dify's plugin API.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Plugins overview" icon="book" href="/plugins/overview">
+    Understand plugin types, the manifest format, and the security model.
+  </Card>
+  <Card title="Developing plugins" icon="code" href="/plugins/develop-plugin">
+    Build your own plugin and publish it to the marketplace.
+  </Card>
+</CardGroup>

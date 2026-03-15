@@ -1,0 +1,169 @@
+---
+title: "Create Document"
+description: "POST /datasets/:dataset_id/document/create-by-text — Add a new document to a dataset from plain text."
+---
+
+## Endpoint
+
+```
+POST /datasets/{dataset_id}/document/create-by-text
+```
+
+<Note>
+  To create a document from an uploaded file instead of text, use `POST /datasets/{dataset_id}/document/create-by-file` with `multipart/form-data`. The request body is a JSON string in the `data` form field, with the file in the `file` form field.
+</Note>
+
+## Path Parameters
+
+<ParamField path="dataset_id" type="string" required>
+  UUID of the dataset to add the document to.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="name" type="string" required>
+  Document name.
+</ParamField>
+
+<ParamField body="text" type="string" required>
+  The raw text content of the document.
+</ParamField>
+
+<ParamField body="indexing_technique" type="string">
+  Indexing technique to use. One of: `"high_quality"`, `"economy"`. If not provided, inherits from the dataset.
+</ParamField>
+
+<ParamField body="process_rule" type="object">
+  Document segmentation and cleaning rules. If omitted, the dataset's latest process rule is used.
+
+  <Expandable title="Process rule fields">
+    <ParamField body="mode" type="string">
+      Preprocessing mode. One of: `"automatic"`, `"custom"`.
+    </ParamField>
+    <ParamField body="rules" type="object">
+      Rules for `"custom"` mode.
+      <Expandable title="Rules fields">
+        <ParamField body="pre_processing_rules" type="array">
+          List of pre-processing rules.
+          <Expandable title="Pre-processing rule">
+            <ParamField body="id" type="string">Rule ID, e.g. `"remove_extra_spaces"`, `"remove_urls_emails"`.</ParamField>
+            <ParamField body="enabled" type="boolean">Whether this rule is enabled.</ParamField>
+          </Expandable>
+        </ParamField>
+        <ParamField body="segmentation" type="object">
+          <Expandable title="Segmentation fields">
+            <ParamField body="separator" type="string">Segment separator string.</ParamField>
+            <ParamField body="max_tokens" type="integer">Maximum tokens per segment.</ParamField>
+            <ParamField body="chunk_overlap" type="integer">Token overlap between adjacent segments.</ParamField>
+          </Expandable>
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="doc_form" type="string">
+  Document indexing form. Defaults to `"text_model"`.
+  - `"text_model"` — standard text chunking.
+  - `"hierarchical_model"` — parent-child chunk structure.
+  - `"qa_model"` — Q&A pairs indexing.
+</ParamField>
+
+<ParamField body="doc_language" type="string">
+  Language of the document content. Defaults to `"English"`.
+</ParamField>
+
+<ParamField body="retrieval_model" type="object">
+  Overrides the dataset's retrieval configuration for this document. See [Create Dataset](/api-reference/knowledge/create-dataset) for the full shape.
+</ParamField>
+
+<ParamField body="embedding_model" type="string">
+  Embedding model name override.
+</ParamField>
+
+<ParamField body="embedding_model_provider" type="string">
+  Embedding model provider override.
+</ParamField>
+
+<ParamField body="original_document_id" type="string">
+  If provided, replaces the content of an existing document (re-index operation).
+</ParamField>
+
+## Response
+
+<ResponseField name="document" type="object">
+  The created document object.
+
+  <Expandable title="Document fields">
+    <ResponseField name="id" type="string">Document UUID.</ResponseField>
+    <ResponseField name="position" type="integer">Position in the dataset.</ResponseField>
+    <ResponseField name="data_source_type" type="string">Always `"upload_file"` for text-created documents.</ResponseField>
+    <ResponseField name="name" type="string">Document name.</ResponseField>
+    <ResponseField name="created_from" type="string">Origin, e.g. `"api"`.</ResponseField>
+    <ResponseField name="created_by" type="string">Account ID of creator.</ResponseField>
+    <ResponseField name="created_at" type="integer">Unix timestamp of creation.</ResponseField>
+    <ResponseField name="tokens" type="integer">Total token count.</ResponseField>
+    <ResponseField name="indexing_status" type="string">Current indexing status. One of: `"waiting"`, `"indexing"`, `"completed"`, `"error"`.</ResponseField>
+    <ResponseField name="error" type="string">Error message, if indexing failed.</ResponseField>
+    <ResponseField name="enabled" type="boolean">Whether the document is active in retrieval.</ResponseField>
+    <ResponseField name="display_status" type="string">Human-readable display status.</ResponseField>
+    <ResponseField name="word_count" type="integer">Word count.</ResponseField>
+    <ResponseField name="hit_count" type="integer">Number of times this document has been retrieved.</ResponseField>
+    <ResponseField name="doc_form" type="string">Indexing form used.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="batch" type="string">
+  Batch identifier. Use with `GET /datasets/{dataset_id}/documents/{batch}/indexing-status` to monitor indexing progress.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `400` | Invalid or missing parameters |
+| `401` | Invalid or missing API key |
+| `500` | Provider not initialized (embedding model credentials missing) |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/datasets/{dataset_id}/document/create-by-text' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Getting Started Guide",
+    "text": "Dify is an open-source platform for building LLM applications...",
+    "indexing_technique": "high_quality",
+    "process_rule": {
+      "mode": "automatic"
+    }
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    f"https://api.dify.ai/v1/datasets/{dataset_id}/document/create-by-text",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={
+        "name": "Getting Started Guide",
+        "text": "Dify is an open-source platform for building LLM applications...",
+        "indexing_technique": "high_quality",
+        "process_rule": {"mode": "automatic"},
+    },
+)
+print(response.json())
+```
+</CodeGroup>

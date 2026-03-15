@@ -1,0 +1,92 @@
+---
+title: "Authentication"
+description: "How to authenticate with the Dify API using app-specific API keys."
+---
+
+## API Keys
+
+Dify uses **app-level API keys**. Every app you create in Dify has its own independent key — there is no single account-wide key. This means:
+
+- Each key only grants access to the endpoints of the app it belongs to.
+- You can revoke or rotate a key for one app without affecting other apps.
+- The key type (chat, completion, workflow, knowledge) determines which endpoint groups are available.
+
+### Finding Your API Key
+
+1. Open your app in the Dify dashboard.
+2. Navigate to **API Access** in the left sidebar.
+3. Copy the displayed API key.
+
+For the **Knowledge Base API**, the key is found under **Knowledge → API** in your workspace settings.
+
+## Sending the API Key
+
+Include the key in every request as an HTTP `Authorization` header using the `Bearer` scheme:
+
+```http
+Authorization: Bearer {api_key}
+```
+
+<CodeGroup>
+```bash curl
+curl https://api.dify.ai/v1/chat-messages \
+  -H 'Authorization: Bearer app-xxxxxxxxxxxxxxxxxxxx' \
+  -H 'Content-Type: application/json' \
+  -d '{"query": "Hello", "user": "user-123", "inputs": {}}'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.dify.ai/v1/chat-messages",
+    headers={"Authorization": "Bearer app-xxxxxxxxxxxxxxxxxxxx"},
+    json={"query": "Hello", "user": "user-123", "inputs": {}},
+)
+```
+</CodeGroup>
+
+## User Identification
+
+Most endpoints accept a `user` parameter that lets you identify the end-user making the request. This is used for:
+
+- **Conversation isolation** — each user's conversation history is kept separate.
+- **Usage analytics** — per-user token and request metrics in the Dify dashboard.
+- **Rate limiting** — per-user limits where applicable.
+
+The `user` value is a string you define in your application (e.g. a database ID, UUID, or hashed email). Dify stores it as-is and never validates its format.
+
+```json
+{
+  "query": "What is Dify?",
+  "user": "user-a1b2c3",
+  "inputs": {}
+}
+```
+
+<Note>
+  The `user` parameter is **required** on most write endpoints (send message, run workflow, etc.) and optional on read endpoints.
+</Note>
+
+## Security Best Practices
+
+<Warning>
+  Never expose your API key in client-side code, mobile apps, or public repositories. All API calls should be proxied through your own backend server.
+</Warning>
+
+- **Store keys in environment variables**, not in source code.
+- **Rotate keys immediately** if you suspect a leak — generate a new key in the dashboard and revoke the old one.
+- **Use separate apps** (and therefore separate keys) for development, staging, and production environments.
+- **Scope access minimally** — only share a key with the service that needs it.
+
+## Error Responses
+
+If your API key is missing or invalid, the API returns:
+
+```json
+{
+  "code": "unauthorized",
+  "message": "Unauthorized",
+  "status": 401
+}
+```

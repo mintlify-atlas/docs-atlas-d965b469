@@ -1,0 +1,222 @@
+---
+title: "Tracing Integrations"
+description: "Export detailed LLM call traces from Dify to external observability platforms such as Langfuse, LangSmith, Opik, and more."
+---
+
+Dify's built-in logs show individual request summaries. Tracing integrations go deeper: they export the full call chain — every LLM call, tool invocation, retrieval step, and moderation check — as structured spans to a third-party observability platform. This gives you flame graphs, latency breakdowns, token attribution per step, and cost analysis across runs.
+
+## What tracing captures
+
+When a tracing integration is active, Dify emits the following span types:
+
+| Span type | What it covers |
+|---|---|
+| `message` | The complete message exchange: input, output, model, token counts, and latency |
+| `workflow` | A full workflow run: all node inputs/outputs, elapsed time, status, and total tokens |
+| `tool` | A single tool call: tool name, inputs, outputs, time cost, and any error |
+| `dataset_retrieval` | A knowledge base lookup: query, retrieved documents, and timing |
+| `moderation` | A moderation check: input, flagged status, action taken, and preset response |
+| `suggested_question` | Suggested follow-up generation: model used, tokens, and the generated suggestions |
+| `generate_conversation_name` | Automatic conversation title generation |
+
+Spans are batched and dispatched asynchronously via Celery, so tracing adds no latency to your app's critical path.
+
+## Supported integrations
+
+<CardGroup cols={2}>
+  <Card title="Langfuse" icon="chart-scatter" href="https://langfuse.com">
+    Open-source LLM observability. Supports self-hosting.
+  </Card>
+  <Card title="LangSmith" icon="link" href="https://smith.langchain.com">
+    LangChain's tracing and evaluation platform.
+  </Card>
+  <Card title="Opik (Comet ML)" icon="flask" href="https://www.comet.com/opik">
+    Open-source LLM evaluation and tracing from Comet.
+  </Card>
+  <Card title="Weights & Biases Weave" icon="wave-square" href="https://wandb.ai/site/weave">
+    W&B's tracing and evaluation product.
+  </Card>
+  <Card title="Arize" icon="tower-broadcast" href="https://arize.com">
+    Enterprise ML observability platform.
+  </Card>
+  <Card title="Arize Phoenix" icon="fire" href="https://phoenix.arize.com">
+    Open-source LLM tracing (self-hosted or cloud).
+  </Card>
+  <Card title="MLflow" icon="flask-round-potion" href="https://mlflow.org">
+    Open-source ML lifecycle management with tracing support.
+  </Card>
+  <Card title="Databricks MLflow" icon="database" href="https://www.databricks.com">
+    Databricks-managed MLflow for unified data and ML observability.
+  </Card>
+  <Card title="Aliyun ARMS" icon="cloud" href="https://www.aliyun.com">
+    Alibaba Cloud Application Real-Time Monitoring Service.
+  </Card>
+  <Card title="Tencent APM" icon="cloud" href="https://cloud.tencent.com">
+    Tencent Cloud Application Performance Management.
+  </Card>
+</CardGroup>
+
+## Configuring a tracing integration
+
+Tracing is configured per app. Each app can have one active tracing provider at a time.
+
+<Steps>
+  <Step title="Open app tracing settings">
+    In the Dify console, open your app and go to **Monitoring → Tracing**.
+  </Step>
+
+  <Step title="Choose a provider and enter credentials">
+    Select your provider and fill in the required credentials (see per-provider details below). Click **Test** to verify the connection before saving.
+  </Step>
+
+  <Step title="Enable tracing">
+    Toggle **Tracing** to on. Traces will be emitted for all new requests. Existing log entries are not back-filled.
+  </Step>
+</Steps>
+
+<Note>
+  Credentials are encrypted at rest using Dify's tenant-scoped key before being stored. The console displays obfuscated values (masked with `*`) after saving.
+</Note>
+
+## Provider configuration reference
+
+<AccordionGroup>
+  <Accordion title="Langfuse">
+    | Field | Description | Default |
+    |---|---|---|
+    | `public_key` | Langfuse project public key | — |
+    | `secret_key` | Langfuse project secret key | — |
+    | `host` | API host URL | `https://api.langfuse.com` |
+
+    Set `host` to your self-hosted Langfuse URL if you are not using Langfuse Cloud. The host must be reachable from your Dify worker containers.
+
+    After saving, Dify resolves your project URL as `{host}/project/{project_key}` and displays a direct link to the Langfuse project in the tracing settings panel.
+  </Accordion>
+
+  <Accordion title="LangSmith">
+    | Field | Description | Default |
+    |---|---|---|
+    | `api_key` | LangSmith API key | — |
+    | `project` | Project name in LangSmith | — |
+    | `endpoint` | API endpoint | `https://api.smith.langchain.com` |
+
+    LangSmith only accepts HTTPS endpoints. HTTP endpoints are rejected at configuration time.
+  </Accordion>
+
+  <Accordion title="Opik (Comet ML)">
+    | Field | Description | Default |
+    |---|---|---|
+    | `api_key` | Comet/Opik API key (optional for self-hosted) | — |
+    | `project` | Project name | `Default Project` |
+    | `workspace` | Comet workspace name | — |
+    | `url` | Opik API base URL | `https://www.comet.com/opik/api/` |
+
+    For a self-hosted Opik instance, set `url` to your server's API base URL. The URL must end with `/api/`.
+  </Accordion>
+
+  <Accordion title="Weights & Biases Weave">
+    | Field | Description | Default |
+    |---|---|---|
+    | `api_key` | W&B API key | — |
+    | `project` | W&B project name | — |
+    | `entity` | W&B team or user entity | — |
+    | `endpoint` | Trace endpoint | `https://trace.wandb.ai` |
+    | `host` | W&B host for self-hosted deployments | — |
+
+    Only HTTPS endpoints are accepted. Leave `host` blank for W&B Cloud.
+  </Accordion>
+
+  <Accordion title="Arize">
+    | Field | Description | Default |
+    |---|---|---|
+    | `api_key` | Arize API key | — |
+    | `space_id` | Arize space ID | — |
+    | `project` | Project name | `default` |
+    | `endpoint` | OTLP ingest endpoint | `https://otlp.arize.com` |
+  </Accordion>
+
+  <Accordion title="Arize Phoenix">
+    | Field | Description | Default |
+    |---|---|---|
+    | `api_key` | Phoenix API key (optional for self-hosted) | — |
+    | `project` | Project name | `default` |
+    | `endpoint` | Phoenix instance URL | `https://app.phoenix.arize.com` |
+
+    For a self-hosted Phoenix instance, set `endpoint` to your Phoenix server URL.
+  </Accordion>
+
+  <Accordion title="MLflow">
+    | Field | Description | Default |
+    |---|---|---|
+    | `tracking_uri` | MLflow tracking server URI | `http://localhost:5000` |
+    | `experiment_id` | MLflow experiment ID (integer) | `0` |
+    | `username` | Basic auth username (optional) | — |
+    | `password` | Basic auth password (optional) | — |
+
+    Do not set `tracking_uri` to a `databricks://` URI — use the Databricks provider instead.
+  </Accordion>
+
+  <Accordion title="Databricks MLflow">
+    | Field | Description | Default |
+    |---|---|---|
+    | `host` | Databricks workspace URL | — |
+    | `experiment_id` | MLflow experiment ID (integer) | — |
+    | `client_id` | Service principal client ID (optional) | — |
+    | `client_secret` | Service principal client secret (optional) | — |
+    | `personal_access_token` | Databricks personal access token (optional) | — |
+
+    Provide either a personal access token or a service principal client ID + secret.
+  </Accordion>
+
+  <Accordion title="Aliyun ARMS">
+    | Field | Description | Default |
+    |---|---|---|
+    | `license_key` | Aliyun ARMS license key | — |
+    | `endpoint` | ARMS ingest endpoint URL | — |
+    | `app_name` | Application name label | `dify_app` |
+  </Accordion>
+
+  <Accordion title="Tencent APM">
+    | Field | Description | Default |
+    |---|---|---|
+    | `token` | Tencent APM access token | — |
+    | `endpoint` | APM ingest endpoint | — |
+    | `service_name` | Service name label | `dify_app` |
+  </Accordion>
+</AccordionGroup>
+
+## What data is sent to tracing providers
+
+Dify sends the following data to tracing providers for each span:
+
+- **Inputs and outputs** — The exact text or structured data that entered and exited each step
+- **Start and end timestamps** — ISO 8601 datetimes for span duration calculation
+- **Token counts** — Prompt tokens, completion tokens, and total tokens where applicable
+- **Model metadata** — Provider name and model ID
+- **Status and error messages** — Whether the step succeeded, and the error string if it failed
+- **File references** — URLs to any files attached to the message (resolved using the `FILES_URL` environment variable)
+- **Conversation and workflow IDs** — For correlation across spans
+- **Streaming metrics** — Time to first token and total generation time for streaming requests
+
+<Warning>
+  Inputs and outputs sent to tracing providers include the full text of user messages and model responses. Review your tracing provider's data processing agreement before enabling tracing in environments that handle sensitive or regulated data.
+</Warning>
+
+## Use cases for tracing in production
+
+- **Latency debugging** — Compare span durations to identify which step in a complex workflow is slowest. A tool call taking 3 seconds is immediately visible in a flame graph.
+- **Prompt regression testing** — Capture a representative sample of production traces and replay them against a new prompt version to compare outputs.
+- **Cost attribution** — Break down token spend by node or step within a workflow to find optimization opportunities.
+- **Error root-cause analysis** — Trace a failed conversation back through every intermediate step to find where it went wrong.
+- **Dataset creation** — Export traced inputs and outputs to build evaluation datasets for systematic testing.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Logs & Annotations" icon="list" href="/llmops/logs-and-annotations">
+    Annotate log entries to build a curated answer library.
+  </Card>
+  <Card title="Monitoring & Metrics" icon="chart-line" href="/llmops/monitoring">
+    Review aggregate metrics and cost trends in the Dify console.
+  </Card>
+</CardGroup>

@@ -1,0 +1,113 @@
+---
+title: "List Documents"
+description: "GET /datasets/:dataset_id/documents — Retrieve a paginated list of documents in a dataset."
+---
+
+## Endpoint
+
+```
+GET /datasets/{dataset_id}/documents
+```
+
+## Path Parameters
+
+<ParamField path="dataset_id" type="string" required>
+  UUID of the dataset.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+
+### Query Parameters
+
+<ParamField query="page" type="integer">
+  Page number. Starts at `1`. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Documents per page. Maximum `100`. Defaults to `20`.
+</ParamField>
+
+<ParamField query="keyword" type="string">
+  Filter documents by name (partial match).
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by display status. Common values: `"available"`, `"unavailable"`, `"indexing"`, `"error"`.
+</ParamField>
+
+## Response
+
+<ResponseField name="data" type="array">
+  List of document objects.
+
+  <Expandable title="Document object">
+    <ResponseField name="id" type="string">Document UUID.</ResponseField>
+    <ResponseField name="position" type="integer">Position in dataset.</ResponseField>
+    <ResponseField name="data_source_type" type="string">How the document was created (`"upload_file"`).</ResponseField>
+    <ResponseField name="name" type="string">Document name.</ResponseField>
+    <ResponseField name="created_from" type="string">Creation origin (`"api"`, `"web"`, etc.).</ResponseField>
+    <ResponseField name="created_by" type="string">Creator account ID.</ResponseField>
+    <ResponseField name="created_at" type="integer">Unix timestamp of creation.</ResponseField>
+    <ResponseField name="tokens" type="integer">Total tokens in the document.</ResponseField>
+    <ResponseField name="indexing_status" type="string">One of: `"waiting"`, `"indexing"`, `"completed"`, `"error"`.</ResponseField>
+    <ResponseField name="error" type="string">Indexing error message, if any.</ResponseField>
+    <ResponseField name="enabled" type="boolean">Whether retrieval is active for this document.</ResponseField>
+    <ResponseField name="archived" type="boolean">Whether the document is archived.</ResponseField>
+    <ResponseField name="display_status" type="string">Human-readable status.</ResponseField>
+    <ResponseField name="word_count" type="integer">Word count.</ResponseField>
+    <ResponseField name="hit_count" type="integer">Retrieval hit count.</ResponseField>
+    <ResponseField name="doc_form" type="string">Indexing form.</ResponseField>
+    <ResponseField name="doc_language" type="string">Document language.</ResponseField>
+    <ResponseField name="summary_index_status" type="string">Summary index generation status, if applicable.</ResponseField>
+    <ResponseField name="need_summary" type="boolean">Whether a summary index is needed.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` if there are more documents beyond this page.
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  Page size applied.
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total document count in this dataset.
+</ResponseField>
+
+<ResponseField name="page" type="integer">
+  Current page number.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `404` | Dataset not found |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl 'https://api.dify.ai/v1/datasets/{dataset_id}/documents?page=1&limit=20' \
+  -H 'Authorization: Bearer {api_key}'
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    f"https://api.dify.ai/v1/datasets/{dataset_id}/documents",
+    headers={"Authorization": "Bearer {api_key}"},
+    params={"page": 1, "limit": 20},
+)
+print(response.json())
+```
+</CodeGroup>

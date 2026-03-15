@@ -1,0 +1,158 @@
+---
+title: "Embedding models"
+description: "Understand how embedding models work in the Dify RAG pipeline, which providers are supported, and how to choose and change models."
+keywords: ["embedding model", "text embedding", "vector database", "RAG", "OpenAI embeddings", "Cohere embeddings"]
+---
+
+Embedding models convert text into dense numerical vectors that capture semantic meaning. In the Dify RAG pipeline, the same model is used at two points:
+
+1. **Indexing** — each document chunk is embedded and stored in the vector database.
+2. **Query time** — the user's query is embedded so it can be compared against the stored chunk vectors using cosine similarity.
+
+Because both sides must live in the same vector space, you must use the **same embedding model** for all documents in a knowledge base, and for every query against it.
+
+## How embedding models fit into the pipeline
+
+```
+Document text
+     │
+     ▼
+  Chunking
+     │
+     ▼
+Embedding model  ──────►  vector (float[1536])
+     │
+     ▼
+ Vector database (stored)
+
+User query
+     │
+     ▼
+Embedding model  ──────►  query vector
+     │
+     ▼
+  ANN search → top-K chunks
+```
+
+Dify's `CachedEmbedding` wrapper batches embedding requests and caches results to reduce API calls during re-indexing or repeated queries.
+
+## Supported providers
+
+Any provider configured in **Settings → Model providers** that exposes a `text-embedding` model type is available for knowledge base indexing.
+
+<AccordionGroup>
+  <Accordion title="OpenAI">
+    Popular models:
+
+    | Model | Dimensions | Notes |
+    |-------|-----------|-------|
+    | `text-embedding-3-small` | 1536 | Low cost, good quality. Recommended default. |
+    | `text-embedding-3-large` | 3072 | Higher quality, higher cost. |
+    | `text-embedding-ada-002` | 1536 | Legacy model. Use `text-embedding-3-small` for new knowledge bases. |
+
+    Set `embedding_model_provider` to `openai`.
+  </Accordion>
+  <Accordion title="Cohere">
+    Popular models:
+
+    | Model | Dimensions | Notes |
+    |-------|-----------|-------|
+    | `embed-english-v3.0` | 1024 | English-language optimised. |
+    | `embed-multilingual-v3.0` | 1024 | Supports 100+ languages. |
+
+    Set `embedding_model_provider` to `cohere`.
+  </Accordion>
+  <Accordion title="Local models via Ollama">
+    Run embedding models on your own hardware with no API costs.
+
+    | Model | Dimensions | Notes |
+    |-------|-----------|-------|
+    | `nomic-embed-text` | 768 | Compact, fast, good quality for English. |
+    | `mxbai-embed-large` | 1024 | High-quality open model. |
+    | `all-minilm` | 384 | Very small and fast; useful for low-resource environments. |
+
+    Set `embedding_model_provider` to `ollama`. Make sure the Ollama server is reachable from Dify's API container.
+  </Accordion>
+  <Accordion title="Other providers">
+    Dify supports many additional providers including:
+
+    - **Azure OpenAI** — use the same OpenAI models via your Azure deployment.
+    - **Hugging Face** — access open models via the Inference API.
+    - **Jina AI** — `jina-embeddings-v3` with up to 8192-token context.
+    - **Mistral AI** — `mistral-embed`.
+    - **Voyage AI** — `voyage-3`, `voyage-3-lite`.
+    - **Baidu Qianfan**, **Tongyi** — Chinese-language optimised models.
+
+    Any provider that appears in **Settings → Model providers** and has an active text-embedding model can be used.
+  </Accordion>
+</AccordionGroup>
+
+## Choosing the right embedding model
+
+<CardGroup cols={2}>
+  <Card title="Quality" icon="star">
+    Larger models with higher-dimensional output generally produce better retrieval quality. Use `text-embedding-3-large` or `embed-english-v3.0` for production knowledge bases where accuracy is critical.
+  </Card>
+  <Card title="Cost" icon="circle-dollar-to-slot">
+    Embedding is billed per token at indexing time and per query at runtime. `text-embedding-3-small` costs roughly 5× less than `text-embedding-3-large` per token (OpenAI pricing).
+  </Card>
+  <Card title="Language" icon="language">
+    For non-English content, prefer multilingual models such as `embed-multilingual-v3.0` (Cohere) or `multilingual-e5-large` (Hugging Face).
+  </Card>
+  <Card title="Latency" icon="gauge">
+    Local models via Ollama eliminate round-trip API latency during queries. This can significantly reduce end-to-end response time for self-hosted deployments.
+  </Card>
+</CardGroup>
+
+### Dimension size trade-offs
+
+Higher-dimensional vectors capture more semantic nuance but consume more storage and memory in the vector database.
+
+| Dimensions | Typical storage per 1M chunks | Use case |
+|-----------|------------------------------|----------|
+| 384 | ~1.5 GB | Prototyping, low-resource deployments |
+| 768–1024 | ~3–4 GB | Most production use cases |
+| 1536 | ~6 GB | High-quality English retrieval |
+| 3072 | ~12 GB | Maximum quality when storage is not a constraint |
+
+## Changing the embedding model on an existing knowledge base
+
+<Warning>
+Changing the embedding model on a knowledge base requires re-indexing every document. All existing vectors are discarded and new vectors are generated with the new model. This process consumes embedding tokens for every chunk in the knowledge base.
+</Warning>
+
+You can change the model via the UI (**Knowledge → Settings**) or the API:
+
+```bash
+curl -X PATCH "https://api.dify.ai/v1/datasets/{dataset_id}" \
+  -H "Authorization: Bearer {api_key}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "embedding_model_provider": "openai",
+    "embedding_model": "text-embedding-3-large",
+    "indexing_technique": "high_quality"
+  }'
+```
+
+After updating, trigger re-indexing of each document using the update-by-file or update-by-text endpoint. Monitor progress via the indexing-status endpoint.
+
+<Tip>
+Before switching models in production, test the new model on a representative sample of your queries. A higher-dimensional model does not always mean better retrieval for your specific domain.
+</Tip>
+
+## Verifying embedding availability
+
+The dataset list and get-dataset API responses include an `embedding_available` field:
+
+```json
+{
+  "id": "abc123",
+  "name": "Product docs",
+  "indexing_technique": "high_quality",
+  "embedding_model": "text-embedding-3-small",
+  "embedding_model_provider": "openai",
+  "embedding_available": true
+}
+```
+
+`embedding_available` is `false` when the configured embedding model is no longer active in your provider settings (for example, if the API key was revoked or the model was disabled). No new documents can be indexed until the issue is resolved.

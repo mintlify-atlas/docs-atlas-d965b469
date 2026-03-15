@@ -1,0 +1,201 @@
+---
+title: "Environment Variables"
+description: "Complete reference for all environment variables in Dify's .env configuration file, grouped by category with default values and required/optional status."
+keywords: ["environment variables", ".env", "configuration", "settings", "docker"]
+---
+
+All Dify configuration is managed through environment variables. In Docker Compose deployments these live in the `docker/.env` file. Copy `docker/.env.example` to `docker/.env` to get started.
+
+<Note>
+Variables marked **Required** must be set to a non-default value for a secure, functional production deployment. Variables marked **Optional** have sensible defaults that work out of the box.
+</Note>
+
+## Core / common settings
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `SECRET_KEY` | `sk-9f73s3lj...` | **Required** | Signs session cookies and encrypts sensitive DB data. Generate with `openssl rand -base64 42`. |
+| `INIT_PASSWORD` | _(empty)_ | Optional | Pre-set the initial admin password. Max 30 characters. |
+| `DEPLOY_ENV` | `PRODUCTION` | Optional | `PRODUCTION` or `TESTING`. Testing shows a color label in the UI. |
+| `CONSOLE_API_URL` | _(empty)_ | Optional | Backend URL for the console API. Defaults to same domain. |
+| `CONSOLE_WEB_URL` | _(empty)_ | Optional | Frontend URL for the console. Used for CORS and auth redirects. |
+| `SERVICE_API_URL` | _(empty)_ | Optional | URL displayed as the Service API base URL in the UI. |
+| `APP_API_URL` | _(empty)_ | Optional | Backend URL for WebApp API. |
+| `APP_WEB_URL` | _(empty)_ | Optional | WebApp frontend URL. |
+| `FILES_URL` | _(empty)_ | Optional | URL prefix for file downloads and previews. Required for multimodal file access. |
+| `OPENAI_API_BASE` | `https://api.openai.com/v1` | Optional | Override the OpenAI base URL (for proxies or local OpenAI-compatible servers). |
+| `CHECK_UPDATE_URL` | `https://updates.dify.ai` | Optional | Version check endpoint. Set to empty to disable. |
+
+## Server configuration
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `LOG_LEVEL` | `INFO` | Optional | Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
+| `LOG_OUTPUT_FORMAT` | `text` | Optional | `text` or `json`. |
+| `LOG_FILE` | `/app/logs/server.log` | Optional | Log file path. |
+| `LOG_FILE_MAX_SIZE` | `20` | Optional | Max log file size in MB. |
+| `LOG_FILE_BACKUP_COUNT` | `5` | Optional | Number of rotated log files to keep. |
+| `LOG_TZ` | `UTC` | Optional | Timezone for log timestamps. |
+| `DEBUG` | `false` | Optional | Enable Flask debug mode. Not for production. |
+| `MIGRATION_ENABLED` | `true` | Optional | Run DB migrations automatically on startup. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Optional | Access token lifetime in minutes. |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Optional | Refresh token lifetime in days. |
+| `DIFY_BIND_ADDRESS` | `0.0.0.0` | Optional | API server bind address. |
+| `DIFY_PORT` | `5001` | Optional | API server port. |
+| `SERVER_WORKER_AMOUNT` | `1` | Optional | Number of Gunicorn workers. Formula: `(CPU cores × 2) + 1`. |
+| `SERVER_WORKER_CLASS` | `gevent` | Optional | Worker class. Use `gevent` (default) or `sync` on Windows. |
+| `GUNICORN_TIMEOUT` | `360` | Optional | Request timeout in seconds. Increase for long SSE connections. |
+| `CELERY_WORKER_AMOUNT` | _(empty)_ | Optional | Number of Celery workers. Defaults to CPU count. |
+| `CELERY_AUTO_SCALE` | `false` | Optional | Enable Celery autoscaling. |
+| `CELERY_MAX_WORKERS` | _(empty)_ | Optional | Max workers when autoscaling is enabled. |
+| `CELERY_MIN_WORKERS` | _(empty)_ | Optional | Min workers when autoscaling is enabled. |
+
+## Database (PostgreSQL)
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `DB_TYPE` | `postgresql` | Optional | Database type: `postgresql`, `mysql`, `oceanbase`, `seekdb`. |
+| `DB_USERNAME` | `postgres` | Optional | Database user. |
+| `DB_PASSWORD` | `difyai123456` | **Required** | Database password. Change from the default. |
+| `DB_HOST` | `db_postgres` | Optional | Database host. Use the Docker service name or an external host. |
+| `DB_PORT` | `5432` | Optional | Database port. |
+| `DB_DATABASE` | `dify` | Optional | Database name. |
+| `SQLALCHEMY_POOL_SIZE` | `30` | Optional | Connection pool size. |
+| `SQLALCHEMY_MAX_OVERFLOW` | `10` | Optional | Max connections above the pool size. |
+| `SQLALCHEMY_POOL_RECYCLE` | `3600` | Optional | Connection recycle time in seconds. |
+| `POSTGRES_MAX_CONNECTIONS` | `100` | Optional | Max PostgreSQL connections. |
+| `POSTGRES_SHARED_BUFFERS` | `128MB` | Optional | Shared buffer size. Recommended: 25% of RAM. |
+| `POSTGRES_WORK_MEM` | `4MB` | Optional | Per-query work memory. |
+| `POSTGRES_EFFECTIVE_CACHE_SIZE` | `4096MB` | Optional | Planner's effective cache size assumption. |
+
+## Redis
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `REDIS_HOST` | `redis` | Optional | Redis host. |
+| `REDIS_PORT` | `6379` | Optional | Redis port. |
+| `REDIS_PASSWORD` | `difyai123456` | **Required** | Redis password. Change from the default. |
+| `REDIS_DB` | `0` | Optional | Redis database index (0–15). |
+| `REDIS_USE_SSL` | `false` | Optional | Enable TLS for Redis connection. |
+| `REDIS_USE_SENTINEL` | `false` | Optional | Use Redis Sentinel for HA. |
+| `REDIS_SENTINELS` | _(empty)_ | Optional | Sentinel addresses: `host1:port,host2:port`. |
+| `REDIS_SENTINEL_SERVICE_NAME` | _(empty)_ | Optional | Sentinel master name. |
+| `REDIS_USE_CLUSTERS` | `false` | Optional | Use Redis Cluster mode. |
+| `REDIS_CLUSTERS` | _(empty)_ | Optional | Cluster node addresses: `host1:port,host2:port`. |
+| `CELERY_BROKER_URL` | `redis://:difyai123456@redis:6379/1` | **Required** | Celery broker URL. Update password if you changed `REDIS_PASSWORD`. |
+
+## File storage
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `STORAGE_TYPE` | `opendal` | Optional | Storage backend. |
+| `OPENDAL_SCHEME` | `fs` | Optional | OpenDAL scheme: `fs` (local), `s3`, `azblob`, `gcs`, etc. |
+| `OPENDAL_FS_ROOT` | `storage` | Optional | Root directory for local file storage. |
+| `S3_ENDPOINT` | _(empty)_ | Optional | S3-compatible endpoint URL. |
+| `S3_REGION` | `us-east-1` | Optional | S3 region. |
+| `S3_BUCKET_NAME` | `difyai` | Optional | S3 bucket name. |
+| `S3_ACCESS_KEY` | _(empty)_ | Optional | S3 access key. |
+| `S3_SECRET_KEY` | _(empty)_ | Optional | S3 secret key. |
+| `S3_USE_AWS_MANAGED_IAM` | `false` | Optional | Use IAM role instead of access/secret keys. |
+| `AZURE_BLOB_ACCOUNT_NAME` | `difyai` | Optional | Azure Blob Storage account name. |
+| `AZURE_BLOB_ACCOUNT_KEY` | _(empty)_ | Optional | Azure Blob Storage account key. |
+| `AZURE_BLOB_CONTAINER_NAME` | `difyai-container` | Optional | Container name. |
+| `AZURE_BLOB_ACCOUNT_URL` | `https://<account>.blob.core.windows.net` | Optional | Storage account URL. |
+| `GOOGLE_STORAGE_BUCKET_NAME` | `your-bucket-name` | Optional | GCS bucket name. |
+| `GOOGLE_STORAGE_SERVICE_ACCOUNT_JSON_BASE64` | _(empty)_ | Optional | Base64-encoded GCS service account JSON. |
+
+## Vector database
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `VECTOR_STORE` | `weaviate` | Optional | Active vector store. See [Docker Compose deployment](/deployment/docker-compose) for supported values. |
+| `VECTOR_INDEX_NAME_PREFIX` | `Vector_index` | Optional | Prefix for collection names in the vector store. |
+| `WEAVIATE_ENDPOINT` | `http://weaviate:8080` | Optional | Weaviate HTTP endpoint. |
+| `WEAVIATE_API_KEY` | `WVF5YThaHlkY...` | **Required** | Weaviate API key. Change from the default. |
+| `WEAVIATE_GRPC_ENDPOINT` | `grpc://weaviate:50051` | Optional | Weaviate gRPC endpoint. |
+| `QDRANT_URL` | `http://qdrant:6333` | Optional | Qdrant endpoint (when `VECTOR_STORE=qdrant`). |
+| `QDRANT_API_KEY` | `difyai123456` | Optional | Qdrant API key. |
+| `MILVUS_URI` | `http://host.docker.internal:19530` | Optional | Milvus URI (when `VECTOR_STORE=milvus`). |
+| `PGVECTOR_HOST` | `pgvector` | Optional | pgvector host (when `VECTOR_STORE=pgvector`). |
+| `PGVECTOR_PASSWORD` | `difyai123456` | Optional | pgvector password. |
+| `ELASTICSEARCH_HOST` | `0.0.0.0` | Optional | Elasticsearch host. |
+| `ELASTICSEARCH_PORT` | `9200` | Optional | Elasticsearch port. |
+| `OPENSEARCH_HOST` | `opensearch` | Optional | OpenSearch host. |
+
+## Mail
+
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `MAIL_TYPE` | `resend` | Optional | Mail provider: `resend`, `smtp`, `sendgrid`. |
+| `MAIL_DEFAULT_SEND_FROM` | _(empty)_ | Optional | Default from address for outgoing email. |
+| `RESEND_API_KEY` | `your-resend-api-key` | Optional | API key for Resend (when `MAIL_TYPE=resend`). |
+| `RESEND_API_URL` | `https://api.resend.com` | Optional | Resend API base URL. |
+| `SMTP_SERVER` | _(empty)_ | Optional | SMTP server hostname (when `MAIL_TYPE=smtp`). |
+| `SMTP_PORT` | `465` | Optional | SMTP port. |
+| `SMTP_USERNAME` | _(empty)_ | Optional | SMTP username. |
+| `SMTP_PASSWORD` | _(empty)_ | Optional | SMTP password. |
+| `SMTP_USE_TLS` | `true` | Optional | Enable TLS for SMTP. |
+| `SENDGRID_API_KEY` | _(empty)_ | Optional | SendGrid API key (when `MAIL_TYPE=sendgrid`). |
+
+## Nginx
+
+| Variable | Default | Description |
+|---|---|---|
+| `NGINX_SERVER_NAME` | `_` | Virtual host name. Set to your domain in production. |
+| `NGINX_HTTPS_ENABLED` | `false` | Enable HTTPS. Requires SSL certificate files. |
+| `NGINX_PORT` | `80` | Internal HTTP port. |
+| `NGINX_SSL_PORT` | `443` | Internal HTTPS port. |
+| `NGINX_SSL_CERT_FILENAME` | `dify.crt` | Certificate filename in `./nginx/ssl/`. |
+| `NGINX_SSL_CERT_KEY_FILENAME` | `dify.key` | Key filename in `./nginx/ssl/`. |
+| `NGINX_SSL_PROTOCOLS` | `TLSv1.2 TLSv1.3` | Accepted TLS protocol versions. |
+| `NGINX_WORKER_PROCESSES` | `auto` | Worker process count. |
+| `NGINX_CLIENT_MAX_BODY_SIZE` | `100M` | Maximum request body size (affects file uploads). |
+| `NGINX_KEEPALIVE_TIMEOUT` | `65` | Keep-alive timeout in seconds. |
+| `NGINX_PROXY_READ_TIMEOUT` | `3600s` | Upstream read timeout. Keep high for SSE. |
+| `NGINX_PROXY_SEND_TIMEOUT` | `3600s` | Upstream send timeout. |
+| `EXPOSE_NGINX_PORT` | `80` | Host port mapped to Nginx HTTP port. |
+| `EXPOSE_NGINX_SSL_PORT` | `443` | Host port mapped to Nginx HTTPS port. |
+
+## Model configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `PROMPT_GENERATION_MAX_TOKENS` | `512` | Max tokens for the prompt generator tool. |
+| `CODE_GENERATION_MAX_TOKENS` | `1024` | Max tokens for the code generator tool. |
+| `MULTIMODAL_SEND_FORMAT` | `base64` | How images are sent to multimodal models: `base64` or `url`. |
+| `UPLOAD_IMAGE_FILE_SIZE_LIMIT` | `10` | Max image upload size in MB. |
+| `UPLOAD_VIDEO_FILE_SIZE_LIMIT` | `100` | Max video upload size in MB. |
+| `UPLOAD_AUDIO_FILE_SIZE_LIMIT` | `50` | Max audio upload size in MB. |
+| `POSITION_PROVIDER_PINS` | _(empty)_ | Comma-separated list of providers to pin at the top. |
+| `POSITION_PROVIDER_INCLUDES` | _(empty)_ | Only show these providers (empty = show all). |
+| `POSITION_PROVIDER_EXCLUDES` | _(empty)_ | Hide these providers. |
+
+## Workflow and execution
+
+| Variable | Default | Description |
+|---|---|---|
+| `WORKFLOW_MAX_EXECUTION_STEPS` | `500` | Maximum nodes executed per workflow run. |
+| `WORKFLOW_MAX_EXECUTION_TIME` | `1200` | Workflow timeout in seconds (20 minutes). |
+| `WORKFLOW_CALL_MAX_DEPTH` | `5` | Maximum workflow call nesting depth. |
+| `MAX_VARIABLE_SIZE` | `204800` | Maximum variable size in bytes (200 KB). |
+| `LOOP_NODE_MAX_COUNT` | `100` | Maximum loop iterations in a workflow. |
+| `MAX_PARALLEL_LIMIT` | `10` | Maximum parallel branches. |
+| `MAX_ITERATIONS_NUM` | `99` | Maximum agent iterations. |
+| `APP_MAX_EXECUTION_TIME` | `1200` | App execution timeout in seconds. |
+
+## Sentry (monitoring)
+
+| Variable | Default | Description |
+|---|---|---|
+| `API_SENTRY_DSN` | _(empty)_ | Sentry DSN for the API service. Leave empty to disable. |
+| `API_SENTRY_TRACES_SAMPLE_RATE` | `1.0` | Sentry trace sample rate (0.0–1.0). |
+| `WEB_SENTRY_DSN` | _(empty)_ | Sentry DSN for the web frontend. |
+
+## Notion integration
+
+| Variable | Default | Description |
+|---|---|---|
+| `NOTION_INTEGRATION_TYPE` | `public` | `public` (OAuth) or `internal` (secret). |
+| `NOTION_CLIENT_ID` | _(empty)_ | OAuth client ID (public integrations). |
+| `NOTION_CLIENT_SECRET` | _(empty)_ | OAuth client secret (public integrations). |
+| `NOTION_INTERNAL_SECRET` | _(empty)_ | Internal integration secret. |

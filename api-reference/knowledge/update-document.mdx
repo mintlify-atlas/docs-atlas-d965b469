@@ -1,0 +1,106 @@
+---
+title: "Update Document"
+description: "POST /datasets/:dataset_id/documents/:document_id/update-by-text — Replace an existing document's content."
+---
+
+## Endpoint
+
+```
+POST /datasets/{dataset_id}/documents/{document_id}/update-by-text
+```
+
+<Note>
+  To update via a file upload instead of text, use `POST /datasets/{dataset_id}/documents/{document_id}/update-by-file` with `multipart/form-data`.
+</Note>
+
+## Path Parameters
+
+<ParamField path="dataset_id" type="string" required>
+  UUID of the dataset containing the document.
+</ParamField>
+
+<ParamField path="document_id" type="string" required>
+  UUID of the document to update.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="name" type="string">
+  New document name. Required when `text` is provided.
+</ParamField>
+
+<ParamField body="text" type="string">
+  New raw text content to replace the existing document content.
+</ParamField>
+
+<ParamField body="process_rule" type="object">
+  New segmentation and cleaning rules. Omit to retain the dataset's existing rules. See [Create Document](/api-reference/knowledge/create-document) for the full shape.
+</ParamField>
+
+<ParamField body="doc_form" type="string">
+  Indexing form. Defaults to `"text_model"`. One of: `"text_model"`, `"hierarchical_model"`, `"qa_model"`.
+</ParamField>
+
+<ParamField body="doc_language" type="string">
+  Document language. Defaults to `"English"`.
+</ParamField>
+
+<ParamField body="retrieval_model" type="object">
+  Retrieval configuration override. See [Create Dataset](/api-reference/knowledge/create-dataset) for the full shape.
+</ParamField>
+
+## Response
+
+<ResponseField name="document" type="object">
+  The updated document object. Same shape as the `document` in [Create Document](/api-reference/knowledge/create-document#response).
+</ResponseField>
+
+<ResponseField name="batch" type="string">
+  Batch identifier for monitoring re-indexing progress.
+</ResponseField>
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `400` | Invalid parameters (e.g. `text` provided without `name`) |
+| `401` | Invalid or missing API key |
+| `404` | Dataset or document not found |
+| `500` | Provider not initialized |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/datasets/{dataset_id}/documents/{document_id}/update-by-text' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Getting Started Guide v2",
+    "text": "Updated content: Dify is an open-source LLM app platform..."
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    f"https://api.dify.ai/v1/datasets/{dataset_id}/documents/{document_id}/update-by-text",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={
+        "name": "Getting Started Guide v2",
+        "text": "Updated content: Dify is an open-source LLM app platform...",
+    },
+)
+print(response.json())
+```
+</CodeGroup>

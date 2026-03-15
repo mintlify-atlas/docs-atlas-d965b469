@@ -1,0 +1,76 @@
+---
+title: "Stop Workflow"
+description: "POST /workflows/tasks/:task_id/stop — Stop an in-progress streaming workflow execution."
+---
+
+<Note>
+  This endpoint only applies to **streaming** workflow runs.
+</Note>
+
+## Endpoint
+
+```
+POST /workflows/tasks/{task_id}/stop
+```
+
+## Path Parameters
+
+<ParamField path="task_id" type="string" required>
+  The `task_id` returned in SSE events during a streaming workflow run.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="user" type="string" required>
+  The end-user identifier that was used when the workflow was started.
+</ParamField>
+
+## Response
+
+<ResponseField name="result" type="string">
+  Always `"success"`.
+</ResponseField>
+
+```json
+{
+  "result": "success"
+}
+```
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `404` | Task not found |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/workflows/tasks/{task_id}/stop' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{"user": "user-123"}'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    f"https://api.dify.ai/v1/workflows/tasks/{task_id}/stop",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={"user": "user-123"},
+)
+print(response.json())
+```
+</CodeGroup>

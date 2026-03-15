@@ -1,0 +1,168 @@
+---
+title: "MCP tools"
+description: "Connect external MCP servers to Dify and use their tools in agents and workflows."
+---
+
+MCP (Model Context Protocol) is an open standard for exposing tools and data sources to LLMs over HTTP. An MCP server is a service that announces a list of callable tools; an MCP client (such as Dify) connects to that server, fetches the tool list, and can invoke any of those tools on behalf of an LLM or agent.
+
+## How Dify integrates MCP servers
+
+Dify treats each MCP server as a **tool provider**. When you connect an MCP server, Dify:
+
+1. Connects to the server's endpoint using Streamable HTTP or SSE (Server-Sent Events)
+2. Calls `tools/list` to retrieve the server's available tools and their input schemas
+3. Registers each tool in Dify's tool panel, where they are available to agents and workflow nodes
+4. When an agent or workflow invokes one of those tools, Dify calls the MCP server's `tools/call` method with the tool name and arguments
+
+Tool schemas returned by the MCP server are automatically converted to Dify's internal parameter format. Text, image, audio, and embedded resource outputs from MCP tools are all handled natively.
+
+## Supported connection methods
+
+Dify automatically negotiates the connection method based on the URL path:
+
+| URL path suffix | Protocol |
+|---|---|
+| `.../sse` | Server-Sent Events (SSE) |
+| `.../mcp` | Streamable HTTP |
+| anything else | Tries Streamable HTTP first, falls back to SSE |
+
+Both protocols are supported for MCP specification versions `2024-11-05` and `2025-03-26`.
+
+## Connecting an MCP server
+
+<Steps>
+  <Step title="Open the MCP tool provider settings">
+    In the Dify console, navigate to **Tools → MCP Servers**. Click **Connect MCP Server**.
+  </Step>
+
+  <Step title="Enter the server details">
+    Provide:
+    - **Name** — A display name for this server (shown in the tool panel)
+    - **Server URL** — The full URL to the MCP server endpoint, e.g., `https://my-mcp-server.example.com/mcp`
+    - **Headers** — Optional HTTP headers to include on every request, such as `Authorization: Bearer <token>`
+    - **Timeout** — Request timeout in seconds (optional)
+    - **SSE read timeout** — Timeout for reading SSE events (optional, for SSE-based servers)
+  </Step>
+
+  <Step title="Test the connection">
+    Click **Test Connection**. Dify connects to the server, fetches the tool list, and shows a preview of the available tools. If the connection fails, the error message from the server is shown.
+  </Step>
+
+  <Step title="Save">
+    Click **Save**. The MCP server's tools are now available in the tool panel.
+  </Step>
+</Steps>
+
+## OAuth authentication
+
+Dify supports OAuth 2.0 for MCP servers that require it. When an MCP server returns an OAuth challenge, Dify initiates the OAuth flow:
+
+1. Dify discovers the server's OAuth metadata from its well-known endpoint
+2. Dify registers as an OAuth client (dynamic client registration)
+3. You are redirected to the authorization URL to grant access
+4. After authorization, the access token is stored encrypted in your Dify workspace and attached to subsequent requests automatically
+
+Tokens are refreshed automatically before expiry.
+
+## Using MCP tools in agents
+
+Once an MCP server is connected, its tools appear in the **Tools** panel alongside built-in tools and plugin-provided tools.
+
+To use an MCP tool in an agent:
+
+1. Open your agent app in the Dify console
+2. In the **Tools** section, click **Add Tool**
+3. Find the MCP server by name and select the tools you want to enable
+4. Click **Save**
+
+The agent can now invoke these tools using its normal ReAct or Function Calling loop. Tool inputs and outputs are logged in the standard [Logs & Annotations](/llmops/logs-and-annotations) view.
+
+## Using MCP tools in workflows
+
+In the Workflow builder, add a **Tool** node and select an MCP-provided tool from the tool picker. Tool parameters can be mapped from upstream node outputs using the variable binding system.
+
+Tool outputs from MCP servers can be:
+
+- **Text content** — Available as a string variable
+- **JSON content** — Available as a structured object variable
+- **Image or audio** — Passed through as file output
+- **Structured output** — If the tool's schema defines an `outputSchema`, individual fields are available as named variables
+
+## Self-hosting MCP servers
+
+You can run an MCP server on your own infrastructure and connect it to Dify. Any HTTP server that implements the MCP protocol can be used.
+
+### Example: a minimal Python MCP server
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+app = FastMCP("my-server")
+
+@app.tool()
+def search(query: str) -> str:
+    """Search for information."""
+    # Your implementation here
+    return f"Results for: {query}"
+
+if __name__ == "__main__":
+    app.run(transport="streamable-http", host="0.0.0.0", port=8000)
+```
+
+Run this server and connect Dify to `http://your-server:8000/mcp`.
+
+<Note>
+  For production deployments, put your MCP server behind a reverse proxy (e.g., Nginx) with TLS. Dify connects to the server URL directly from the worker container, so the server must be reachable from within your Dify deployment network.
+</Note>
+
+### Security considerations
+
+- Use the **Headers** field to pass an API key or Bearer token to restrict access to your MCP server
+- If your MCP server is on a private network, ensure only Dify's worker containers can reach it
+- Review what data MCP tools receive and return — tool inputs include the arguments composed by the LLM, which may include user-provided content
+
+## Exposing a Dify app as an MCP server
+
+Dify also supports the reverse direction: exposing a Dify app as an MCP server so that external MCP clients (such as Claude Desktop or other AI tools) can invoke your app as a tool.
+
+To enable this, open your app's settings and configure it under **App Settings → MCP Server**. You can set:
+- A description for the server
+- Parameters that the server accepts
+- The server status (active or inactive)
+
+The MCP server endpoint for your app is available at a stable URL that you share with MCP clients.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection test fails with 'Failed to connect to MCP server'">
+    - Verify the server URL is correct and includes the full path (e.g., `/mcp` or `/sse`)
+    - Check that the server is running and reachable from the Dify worker container
+    - If the server requires authentication, ensure the correct headers are set
+    - Check the server logs for any errors
+  </Accordion>
+
+  <Accordion title="Tool invocation fails at runtime">
+    Dify raises a `ToolInvokeError` when it cannot connect to the MCP server or when the server returns an error. Check:
+    - The server is still running and the URL has not changed
+    - Authentication tokens have not expired (OAuth tokens are refreshed automatically, but header-based tokens must be updated manually)
+    - The tool name and arguments match what the server expects
+  </Accordion>
+
+  <Accordion title="Tools are not appearing after connecting the server">
+    - Confirm the connection test succeeded and showed the expected tools
+    - Reload the tool panel — it may not refresh automatically after a new server is added
+    - Verify the MCP server's `tools/list` response includes the expected tools
+  </Accordion>
+</AccordionGroup>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Plugins overview" icon="book" href="/plugins/overview">
+    Learn about Dify's plugin system and how it relates to MCP tools.
+  </Card>
+  <Card title="Logs & Annotations" icon="list" href="/llmops/logs-and-annotations">
+    View and annotate tool call logs to monitor MCP tool usage.
+  </Card>
+</CardGroup>

@@ -1,0 +1,137 @@
+---
+title: "Adding a Model"
+description: "How to add and configure model providers and individual models in Dify, including API credentials, custom endpoints, and system model assignments."
+keywords: ["add model", "model provider", "API key", "credentials", "OpenAI compatible", "system model"]
+---
+
+Dify separates model configuration into two levels: **provider credentials** (shared API key for a provider) and **model-level credentials** (per-model overrides for providers that require them). After adding a provider you assign which models to use for each model type.
+
+## Add a provider
+
+<Steps>
+  <Step title="Open Model Providers">
+    Log in to Dify, then go to your workspace **Settings** (bottom-left avatar) → **Model Providers**.
+  </Step>
+  <Step title="Select a provider">
+    Find the provider you want to use and click **Set up** (or the pencil icon if it is already partially configured).
+  </Step>
+  <Step title="Enter credentials">
+    Paste the API key (and any other required fields such as organization ID or base URL) into the form. The exact fields depend on the provider:
+
+    <Tabs>
+      <Tab title="OpenAI">
+        | Field | Description |
+        |---|---|
+        | API Key | Your OpenAI secret key (`sk-...`) |
+        | Organization ID | Optional; found in your OpenAI account settings |
+
+        <Note>The base URL defaults to `https://api.openai.com/v1`. Override it via the `OPENAI_API_BASE` environment variable if you need to route through a proxy.</Note>
+      </Tab>
+      <Tab title="Anthropic">
+        | Field | Description |
+        |---|---|
+        | API Key | Your Anthropic key (`sk-ant-...`) |
+      </Tab>
+      <Tab title="Azure OpenAI">
+        | Field | Description |
+        |---|---|
+        | API Key | Your Azure OpenAI key |
+        | API Base URL | Your endpoint, e.g. `https://your-resource.openai.azure.com/` |
+        | API Version | e.g. `2024-02-01` |
+      </Tab>
+      <Tab title="Google">
+        | Field | Description |
+        |---|---|
+        | API Key | Your Google AI Studio / Vertex AI key |
+      </Tab>
+      <Tab title="AWS Bedrock">
+        | Field | Description |
+        |---|---|
+        | Access Key ID | AWS IAM access key |
+        | Secret Access Key | AWS IAM secret key |
+        | Region | e.g. `us-east-1` |
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Save and verify">
+    Click **Save**. Dify validates the credentials against the provider API. A green checkmark confirms success.
+  </Step>
+</Steps>
+
+## Add models within a provider
+
+Some providers (such as Azure OpenAI and Ollama) require you to add individual models manually because the model list is deployment-specific.
+
+<Steps>
+  <Step title="Find the provider">
+    In **Settings → Model Providers**, locate your configured provider and click **Add Model**.
+  </Step>
+  <Step title="Enter model details">
+    Fill in the model name exactly as the provider expects it (for example, your Azure deployment name, or the `ollama pull` name like `llama3`). Select the model type (LLM, embedding, etc.) from the dropdown.
+  </Step>
+  <Step title="Save">
+    Click **Save**. The model is now available for selection in any app.
+  </Step>
+</Steps>
+
+## Add a custom / OpenAI-compatible endpoint
+
+Many local inference servers and third-party proxies implement the OpenAI API. You can connect them using the **OpenAI-Compatible** provider.
+
+<Steps>
+  <Step title="Open provider settings">
+    In **Settings → Model Providers**, find **OpenAI-Compatible** and click **Set up**.
+  </Step>
+  <Step title="Configure the endpoint">
+    | Field | Example value |
+    |---|---|
+    | API Key | `none` (if authentication is disabled) or your key |
+    | API Base URL | `http://host.docker.internal:11434/v1` (Ollama) or your server URL |
+  </Step>
+  <Step title="Add individual models">
+    Click **Add Model**, enter the model name as reported by the server, and set the appropriate model type and context length.
+  </Step>
+</Steps>
+
+<Tip>
+Common compatible servers include Ollama (`/v1`), LM Studio, LocalAI, vLLM, and any OpenAI API proxy.
+</Tip>
+
+## Configure system model settings
+
+System model settings define which model Dify uses by default when no explicit model is selected in an app.
+
+<Steps>
+  <Step title="Open system model settings">
+    Go to **Settings → Model Providers** and click **System Model Settings** at the top right.
+  </Step>
+  <Step title="Assign models per type">
+    For each model type, select the provider and model to use as the default:
+
+    | Type | Purpose |
+    |---|---|
+    | **LLM** | Default for all chat, completion, and agent apps |
+    | **Text embedding** | Indexing and retrieval in Knowledge Bases |
+    | **Reranking** | Re-score retrieved documents (optional) |
+    | **Text-to-speech** | Default voice generation |
+    | **Speech-to-text** | Default transcription |
+  </Step>
+  <Step title="Save">
+    Click **Save**. All new apps inherit these defaults unless overridden at the app level.
+  </Step>
+</Steps>
+
+<Warning>
+If no embedding model is configured, Knowledge Base indexing will fail. Set a default embedding model before creating any Knowledge Bases.
+</Warning>
+
+## Control provider visibility
+
+Admins can pin, include, or exclude providers from being visible to workspace members using environment variables in `.env`:
+
+```bash
+# Comma-separated provider names
+POSITION_PROVIDER_PINS=openai,anthropic   # show these at the top
+POSITION_PROVIDER_INCLUDES=              # show only these (empty = show all)
+POSITION_PROVIDER_EXCLUDES=             # hide these
+```

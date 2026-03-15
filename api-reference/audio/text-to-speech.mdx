@@ -1,0 +1,91 @@
+---
+title: "Text to Speech"
+description: "POST /text-to-audio — Convert text or a message to synthesized speech."
+---
+
+## Endpoint
+
+```
+POST /text-to-audio
+```
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="text" type="string">
+  The text to synthesize. Either `text` or `message_id` must be provided.
+</ParamField>
+
+<ParamField body="message_id" type="string">
+  UUID of an existing chat message. When provided, the message's answer text is used as the TTS input. Either `text` or `message_id` must be provided.
+</ParamField>
+
+<ParamField body="voice" type="string">
+  Voice ID to use for synthesis. Available voices depend on the TTS provider configured in the app. Omit to use the provider's default voice.
+</ParamField>
+
+<ParamField body="user" type="string">
+  The end-user identifier.
+</ParamField>
+
+<ParamField body="streaming" type="boolean">
+  Whether to stream the audio response. When `true`, the response body is a streaming audio binary. When `false` (default), the full audio is returned at once.
+</ParamField>
+
+## Response
+
+The response body is an audio file in the format produced by the configured TTS provider (typically `audio/mpeg` or `audio/wav`).
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `audio/mpeg` (or provider-specific type) |
+
+## Error Codes
+
+| HTTP Status | Code | Description |
+|---|---|---|
+| `400` | `app_unavailable` | App configuration is broken |
+| `401` | `unauthorized` | Invalid or missing API key |
+| `500` | `provider_not_initialize` | TTS provider credentials not configured |
+| `500` | `provider_quota_exceeded` | TTS provider quota exhausted |
+| `500` | `model_currently_not_support` | Selected TTS model unavailable |
+| `500` | `completion_request_error` | TTS provider returned an error |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X POST 'https://api.dify.ai/v1/text-to-audio' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -o output.mp3 \
+  -d '{
+    "text": "Hello, welcome to Dify!",
+    "user": "user-123"
+  }'
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.dify.ai/v1/text-to-audio",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={
+        "text": "Hello, welcome to Dify!",
+        "user": "user-123",
+    },
+)
+
+with open("output.mp3", "wb") as f:
+    f.write(response.content)
+```
+</CodeGroup>

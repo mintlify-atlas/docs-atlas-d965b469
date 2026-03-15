@@ -1,0 +1,64 @@
+---
+title: "Delete Conversation"
+description: "DELETE /conversations/:conversation_id — Permanently delete a conversation and all its messages."
+---
+
+## Endpoint
+
+```
+DELETE /conversations/{conversation_id}
+```
+
+## Path Parameters
+
+<ParamField path="conversation_id" type="string" required>
+  UUID of the conversation to delete.
+</ParamField>
+
+## Request
+
+### Headers
+
+| Header | Value |
+|---|---|
+| `Authorization` | `Bearer {api_key}` |
+| `Content-Type` | `application/json` |
+
+### Body Parameters
+
+<ParamField body="user" type="string">
+  The end-user identifier. Used to verify the user owns this conversation.
+</ParamField>
+
+## Response
+
+Returns `204 No Content` on success with an empty body.
+
+## Error Codes
+
+| HTTP Status | Description |
+|---|---|
+| `401` | Invalid or missing API key |
+| `404` | Conversation not found |
+
+## Examples
+
+<CodeGroup>
+```bash curl
+curl -X DELETE 'https://api.dify.ai/v1/conversations/{conversation_id}' \
+  -H 'Authorization: Bearer {api_key}' \
+  -H 'Content-Type: application/json' \
+  -d '{"user": "user-123"}'
+```
+
+```python Python
+import requests
+
+response = requests.delete(
+    f"https://api.dify.ai/v1/conversations/{conversation_id}",
+    headers={"Authorization": "Bearer {api_key}"},
+    json={"user": "user-123"},
+)
+print(response.status_code)  # 204
+```
+</CodeGroup>

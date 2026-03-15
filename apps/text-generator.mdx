@@ -1,0 +1,181 @@
+---
+title: "Building a text generator"
+description: "Create single-turn text generation apps using Dify's Completion app type."
+keywords: ["text generator", "completion", "content generation", "summarization", "extraction", "translation", "batch"]
+---
+
+A text generator is a single-turn app: the user submits a prompt with variable inputs and the app returns a generated text response. There is no conversation history between requests.
+
+Dify implements text generators using the `completion` app mode, which calls the `POST /v1/completion-messages` API endpoint.
+
+## Use cases
+
+<CardGroup cols={2}>
+  <Card title="Content generation" icon="pen">
+    Blog posts, product descriptions, marketing copy, social media captions — any task where you supply a template and variables.
+  </Card>
+  <Card title="Summarization" icon="compress">
+    Condense long documents or paste-in text into concise summaries, bullet points, or executive briefs.
+  </Card>
+  <Card title="Data extraction" icon="table">
+    Extract structured fields (names, dates, amounts) from unstructured text, emails, or documents.
+  </Card>
+  <Card title="Translation & rewriting" icon="language">
+    Translate content between languages or rewrite text in a different tone, style, or reading level.
+  </Card>
+</CardGroup>
+
+## Create a text generator
+
+<Steps>
+  <Step title="Create the app">
+    From **Studio**, click **Create App** and select **Text Generator**. Give it a name and click **Create**.
+
+    Dify opens the Prompt IDE with a single **Prompt** editor — there is no conversation history panel, unlike a Chatbot.
+  </Step>
+
+  <Step title="Design the prompt with variables">
+    Write your prompt template in the **Prompt** editor. Insert user-provided values using double curly braces:
+
+    ```text
+    Summarize the following article in {{word_count}} words or fewer.
+    Focus on the key findings and write in a {{tone}} tone.
+
+    Article:
+    {{article_text}}
+    ```
+
+    Each `{{variable}}` automatically creates an input field in the **Variables** panel. Configure each variable:
+
+    | Property | Description |
+    |---|---|
+    | **Label** | Display name shown in the web UI |
+    | **Type** | `text-input`, `paragraph`, `select`, or `number` |
+    | **Required** | Whether the caller must provide a value |
+    | **Max length** | For text inputs, maximum character count |
+    | **Options** | For select inputs, the list of choices |
+  </Step>
+
+  <Step title="Select a model and set parameters">
+    Use the model selector at the top of the left panel to choose a provider and model.
+
+    Key parameters for text generation:
+
+    | Parameter | Effect |
+    |---|---|
+    | **Temperature** | Higher = more creative and varied output; lower = more deterministic |
+    | **Max tokens** | Upper limit on generated text length |
+    | **Top P** | Nucleus sampling; lower values restrict the token pool |
+    | **Presence penalty** | Discourages repeating topics already mentioned |
+    | **Frequency penalty** | Discourages repeating the same words |
+    | **Stop sequences** | Token strings that terminate generation early |
+  </Step>
+
+  <Step title="Test the output">
+    Fill in values for each variable in the **Debug and Preview** panel on the right, then click **Run**. The generated output appears below.
+
+    Iterate on your prompt until the output quality meets your requirements.
+  </Step>
+
+  <Step title="Enable additional features">
+    Optionally configure:
+    - **More like this** — adds a button in the web UI that generates a variation of the last output
+    - **Knowledge base** — retrieves relevant context from a knowledge base before generation
+    - **Sensitive word avoidance** — filters specific terms from the output
+  </Step>
+
+  <Step title="Publish">
+    Click **Publish**. The app is available as a web form (shareable URL) or via the REST API.
+  </Step>
+</Steps>
+
+## API usage
+
+### Single generation
+
+```bash
+curl -X POST https://your-dify-domain/v1/completion-messages \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputs": {
+      "word_count": "150",
+      "tone": "professional",
+      "article_text": "Paste the article content here..."
+    },
+    "response_mode": "blocking",
+    "user": "user-123"
+  }'
+```
+
+The response contains the generated text in the `answer` field.
+
+### Streaming generation
+
+Set `response_mode` to `streaming` to receive output as server-sent events. This is recommended for long outputs where you want to display text as it is generated:
+
+```bash
+curl -X POST https://your-dify-domain/v1/completion-messages \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputs": { "article_text": "..." },
+    "response_mode": "streaming",
+    "user": "user-123"
+  }'
+```
+
+Each event contains a `delta` with the next chunk of generated text.
+
+### Stop a running generation
+
+```bash
+curl -X POST https://your-dify-domain/v1/completion-messages/{task_id}/stop \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user": "user-123"}'
+```
+
+## Batch generation
+
+<Note>
+  Batch generation allows you to run the same app with many different input sets without calling the API individually for each one.
+</Note>
+
+From the app's web interface, click **Batch Run** (available in the web app view, not the Prompt IDE). Upload a CSV file where each row provides values for one generation. Dify processes all rows and lets you download the results.
+
+This is useful for:
+- Generating product descriptions for a large catalog
+- Translating a list of strings
+- Extracting fields from many documents in one job
+
+## Prompt design tips
+
+<AccordionGroup>
+  <Accordion title="Be explicit about output format">
+    Specify the desired format directly in the prompt: "Respond with a JSON object containing `title`, `summary`, and `tags` fields." For strict structured output, use the model's JSON mode if available.
+  </Accordion>
+
+  <Accordion title="Use examples in the prompt">
+    Few-shot examples (input-output pairs embedded in the prompt) dramatically improve consistency for extraction and classification tasks.
+  </Accordion>
+
+  <Accordion title="Set max tokens to match expected output length">
+    A max token limit that's too low truncates responses. Estimate the expected output length and add a 20% buffer.
+  </Accordion>
+
+  <Accordion title="Lower temperature for deterministic tasks">
+    For extraction, classification, and translation — tasks with objectively correct answers — set temperature to 0 or close to 0 to reduce hallucination.
+  </Accordion>
+</AccordionGroup>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Prompt IDE" icon="code" href="/apps/prompt-ide">
+    Deeper guide to the prompt editor, variable syntax, and model comparison.
+  </Card>
+  <Card title="Building a workflow" icon="diagram-project" href="/apps/workflow">
+    Chain multiple generation steps together for more complex pipelines.
+  </Card>
+</CardGroup>
